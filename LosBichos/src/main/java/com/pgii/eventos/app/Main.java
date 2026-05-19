@@ -1,40 +1,69 @@
 package com.pgii.eventos.app;
 
 import com.pgii.eventos.model.*;
-
-import java.time.LocalDateTime;
+import com.pgii.eventos.repository.*;
+import com.pgii.eventos.service.*;
 
 public class Main {
     public static void main(String[] args) {
-        // Crear recinto
-        Recinto recinto = new Recinto("R001", "Estadio Centenario", "Calle 1", "Armenia");
-        Zona vip = new Zona("Z001", "VIP", 50, 250_000, recinto);
-        recinto.agregarZona(vip);
+        // Repositorios
+        RecintoRepository recintoRepo = new RecintoRepository();
+        ZonaRepository zonaRepo = new ZonaRepository();
+        AsientoRepository asientoRepo = new AsientoRepository();
+        EventoRepository eventoRepo = new EventoRepository();
+        UsuarioRepository usuarioRepo = new UsuarioRepository();
+        AdministradorRepository adminRepo = new AdministradorRepository();
+        CompraRepository compraRepo = new CompraRepository();
 
-        // Crear evento
-        Evento concierto = new Evento("E001", "Ferxxo en concierto", CategoriaEvento.CONCIERTO,
-                "Concierto de rock", "Armenia", LocalDateTime.of(2025, 6, 15, 20, 0), recinto);
-        concierto.setEstado(EstadoEvento.PUBLICADO);
+        // Inicializar datos
+        DataInitializer.inicializar(recintoRepo, zonaRepo, asientoRepo, eventoRepo,
+                usuarioRepo, adminRepo, compraRepo);
 
-        // Crear usuario
-        Usuario usuario = new Usuario("U001", "Juan Pérez", "juan@mail.com", "3001234567");
-        usuario.agregarMetodoPago("Tarjeta crédito ****1234");
+        // Servicios
+        UsuarioService usuarioService = new UsuarioService(usuarioRepo);
+        EventoService eventoService = new EventoService(eventoRepo);
+        CompraService compraService = new CompraService(compraRepo, asientoRepo);
+        AdminService adminService = new AdminService(usuarioRepo, eventoRepo, recintoRepo, compraRepo);
 
-        // Crear asiento y entrada
-        Asiento asiento = new Asiento("A001", "A", 1, vip);
-        vip.agregarAsiento(asiento);
-        Entrada entrada = new Entrada("ENT001", concierto, vip, asiento, vip.getPrecioBase());
-
-        // Crear compra
-        Compra compra = new Compra("C001", usuario, concierto);
-        compra.agregarItem(entrada);
-        usuario.agregarCompra(compra);
-
-        System.out.println("Usuario: " + usuario.getNombreCompleto());
-        System.out.println("Compra: " + compra);
-        System.out.println("Items de la compra: " + compra.getItems().size());
-        for (ItemCompra item : compra.getItems()) {
-            System.out.println(" - " + item.getDescripcion() + " => $" + item.getPrecio());
+        // ========== PRUEBAS DE FUNCIONALIDAD ==========
+        // 1. Login de usuario
+        Usuario juan = usuarioService.login("juan@mail.com", "300111222");
+        if (juan != null) {
+            GestorSesion.getInstance().setUsuarioActivo(juan);
+            System.out.println("Login exitoso: " + juan.getNombreCompleto());
         }
+
+        // 2. Explorar eventos publicados
+        System.out.println("\nEventos publicados:");
+        eventoService.listarEventosPublicados().forEach(e -> System.out.println(" - " + e.getNombre()));
+
+        // 3. Crear una compra para juan (evento Juanes)
+        Evento eventoJuanes = eventoService.buscarEvento("E001");
+        Compra nuevaCompra = compraService.crearCompra("C004", juan, eventoJuanes);
+
+        // Agregar una entrada (buscar asiento VIP disponible)
+        Zona zonaVIP = zonaRepo.findAll().stream().filter(z -> z.getNombre().equals("VIP")).findFirst().orElse(null);
+        Asiento asientoLibre = zonaVIP.getAsientos().stream().filter(a -> a.getEstado() == EstadoAsiento.DISPONIBLE).findFirst().orElse(null);
+        if (asientoLibre != null) {
+            Entrada entrada = new Entrada("ENT004", eventoJuanes, zonaVIP, asientoLibre, zonaVIP.getPrecioBase());
+            compraService.agregarEntrada(nuevaCompra, entrada);
+            System.out.println("\nEntrada agregada: " + entrada.getDescripcion());
+        }
+
+        // 4. Pagar compra
+        compraService.pagarCompra(nuevaCompra, "Tarjeta crédito");
+        System.out.println("Compra pagada. Estado: " + nuevaCompra.getEstado());
+
+        // 5. Ver historial de compras de Juan
+        System.out.println("\nHistorial de compras de Juan:");
+        juan.getCompras().forEach(c -> System.out.println(" - Compra " + c.getIdCompra() + " Total: $" + c.getTotal() + " Estado: " + c.getEstado()));
+
+        // 6. Administrador: listar eventos y pausar uno
+        System.out.println("\nAdministrador: lista de eventos");
+        adminService.listarEventos().forEach(e -> System.out.println(e.getNombre() + " [" + e.getEstado() + "]"));
+        adminService.pausarEvento("E001");
+        System.out.println("Evento E001 pausado. Nuevo estado: " + eventoService.buscarEvento("E001").getEstado());
+
+        System.out.println("\nBackend funcionando correctamente.");
     }
 }
