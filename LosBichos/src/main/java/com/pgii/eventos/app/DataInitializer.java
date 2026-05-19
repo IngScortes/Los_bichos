@@ -5,6 +5,7 @@ import com.pgii.eventos.repository.*;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import com.pgii.eventos.patterns.creational.factory.EventoFactory;
 
 public class DataInitializer {
 
@@ -82,7 +83,7 @@ public class DataInitializer {
         }
 
         // ========== EVENTOS ==========
-        Evento evento1 = new Evento("E001", "Ferxxo en concierto", CategoriaEvento.CONCIERTO,
+        Evento evento1 = EventoFactory.crearEvento("E001", "Ferxxo en concierto", CategoriaEvento.CONCIERTO,
                 "Concierto de rock", "Armenia", LocalDateTime.of(2025, 6, 15, 20, 0), recinto1);
         evento1.setEstado(EstadoEvento.PUBLICADO);
 
@@ -157,4 +158,5 @@ public class DataInitializer {
         // asiento reservado? se marcaría como RESERVADO, pero en este modelo no lo hacemos aún
         // Lo dejamos disponible para efectos de prueba
     }
+
 }

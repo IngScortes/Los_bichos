@@ -3,6 +3,9 @@ package com.pgii.eventos.app;
 import com.pgii.eventos.model.*;
 import com.pgii.eventos.repository.*;
 import com.pgii.eventos.service.*;
+import com.pgii.eventos.patterns.creational.builder.CompraBuilder;
+import com.pgii.eventos.patterns.creational.factory.EventoFactory;
+import java.time.LocalDateTime;
 
 public class Main {
     public static void main(String[] args) {
@@ -37,13 +40,16 @@ public class Main {
         System.out.println("\nEventos publicados:");
         eventoService.listarEventosPublicados().forEach(e -> System.out.println(" - " + e.getNombre()));
 
-        // 3. Crear una compra para juan (evento Juanes)
+        // 3. Crear una compra para juan (evento E001)
         Evento eventoJuanes = eventoService.buscarEvento("E001");
         Compra nuevaCompra = compraService.crearCompra("C004", juan, eventoJuanes);
 
         // Agregar una entrada (buscar asiento VIP disponible)
         Zona zonaVIP = zonaRepo.findAll().stream().filter(z -> z.getNombre().equals("VIP")).findFirst().orElse(null);
-        Asiento asientoLibre = zonaVIP.getAsientos().stream().filter(a -> a.getEstado() == EstadoAsiento.DISPONIBLE).findFirst().orElse(null);
+        Asiento asientoLibre = null;
+        if (zonaVIP != null) {
+            asientoLibre = zonaVIP.getAsientos().stream().filter(a -> a.getEstado() == EstadoAsiento.DISPONIBLE).findFirst().orElse(null);
+        }
         if (asientoLibre != null) {
             Entrada entrada = new Entrada("ENT004", eventoJuanes, zonaVIP, asientoLibre, zonaVIP.getPrecioBase());
             compraService.agregarEntrada(nuevaCompra, entrada);
@@ -63,6 +69,29 @@ public class Main {
         adminService.listarEventos().forEach(e -> System.out.println(e.getNombre() + " [" + e.getEstado() + "]"));
         adminService.pausarEvento("E001");
         System.out.println("Evento E001 pausado. Nuevo estado: " + eventoService.buscarEvento("E001").getEstado());
+
+        // ========== DEMOSTRACIÓN DE PATRONES CREACIONALES ==========
+        System.out.println("\n=== Demostración de patrones creacionales ===");
+        // Factory Method
+        Recinto algunRecinto = recintoRepo.findAll().isEmpty() ? null : recintoRepo.findAll().get(0);
+        if (algunRecinto != null) {
+            Evento nuevoEvento = EventoFactory.crearEvento("E005", "Noche de Ópera", CategoriaEvento.TEATRO,
+                    "Ópera en vivo", "Armenia", LocalDateTime.now().plusMonths(2), algunRecinto);
+            System.out.println("Evento creado con Factory: " + nuevoEvento.getNombre() + " - Políticas: " + nuevoEvento.getPoliticas());
+        }
+
+        // Builder para compra
+        if (zonaVIP != null && asientoLibre != null && eventoJuanes != null) {
+            Compra compraConBuilder = new CompraBuilder()
+                    .setIdCompra("C010")
+                    .setUsuario(juan)
+                    .setEvento(eventoJuanes)
+                    .addItem(new Entrada("ENT010", eventoJuanes, zonaVIP, asientoLibre, zonaVIP.getPrecioBase()))
+                    .build();
+            System.out.println("Compra construida con Builder: " + compraConBuilder.getIdCompra() + " Total: " + compraConBuilder.getTotal());
+            // Opcional: guardarla
+            // compraService.crearCompraConBuilder(new CompraBuilder()...);
+        }
 
         System.out.println("\nBackend funcionando correctamente.");
     }

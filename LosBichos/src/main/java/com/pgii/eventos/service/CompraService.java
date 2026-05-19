@@ -2,6 +2,7 @@ package com.pgii.eventos.service;
 
 import com.pgii.eventos.model.*;
 
+import com.pgii.eventos.patterns.creational.builder.CompraBuilder;
 import com.pgii.eventos.repository.CompraRepository;
 import com.pgii.eventos.repository.AsientoRepository;
 
@@ -86,5 +87,11 @@ public class CompraService {
 
     public Compra buscarCompra(String id) {
         return compraRepository.findById(id);
+    }
+    public Compra crearCompraConBuilder(CompraBuilder builder) {
+        Compra compra = builder.build();
+        compraRepository.save(compra);
+        compra.getUsuario().agregarCompra(compra);
+        return compra;
     }
 }

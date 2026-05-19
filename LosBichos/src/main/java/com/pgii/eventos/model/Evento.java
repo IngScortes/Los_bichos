@@ -13,6 +13,7 @@ public class Evento {
     private String politicasCancelacion; // texto simple
     private String politicasReembolso;
     private Recinto recinto;
+    private String politicas;
 
     public Evento(String idEvento, String nombre, CategoriaEvento categoria, String descripcion,
                   String ciudad, LocalDateTime fechaHora, Recinto recinto) {
@@ -26,9 +27,12 @@ public class Evento {
         this.recinto = recinto;
         this.politicasCancelacion = "";
         this.politicasReembolso = "";
+        this.politicas = "";
     }
 
-    // Getters y setters
+    public String getPoliticas() { return politicas; }
+    public void setPoliticas(String politicas) { this.politicas = politicas; }
+
     public String getIdEvento() { return idEvento; }
     public void setIdEvento(String idEvento) { this.idEvento = idEvento; }
 
