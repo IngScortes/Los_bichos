@@ -1,15 +1,18 @@
 package com.pgii.eventos.model;
+
 import java.util.ArrayList;
 import java.util.List;
 
-public class Usuario extends Persona{
+public class Usuario extends Persona {
     private List<String> metodosPago;
-    private List<Object> compras;
+    private List<Compra> compras;
+
     public Usuario(String id, String nombreCompleto, String email, String telefono) {
         super(id, nombreCompleto, email, telefono);
         this.metodosPago = new ArrayList<>();
         this.compras = new ArrayList<>();
     }
+
     public List<String> getMetodosPago() {
         return metodosPago;
     }
@@ -22,11 +25,11 @@ public class Usuario extends Persona{
         this.metodosPago.remove(metodo);
     }
 
-    public List<Object> getCompras() {
+    public List<Compra> getCompras() {
         return compras;
     }
 
-    public void agregarCompra(Object compra) {
+    public void agregarCompra(Compra compra) {
         this.compras.add(compra);
     }
 }
