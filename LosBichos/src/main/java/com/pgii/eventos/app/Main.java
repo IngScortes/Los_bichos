@@ -1,10 +1,19 @@
 package com.pgii.eventos.app;
 
 import com.pgii.eventos.model.*;
+import com.pgii.eventos.patterns.structural.adapter.ApachePOICSVAdapter;
+import com.pgii.eventos.patterns.structural.adapter.IReporteExporter;
+import com.pgii.eventos.patterns.structural.adapter.PDFBoxAdapter;
+import com.pgii.eventos.patterns.structural.decorator.MerchandisingDecorator;
+import com.pgii.eventos.patterns.structural.decorator.ParqueaderoDecorator;
+import com.pgii.eventos.patterns.structural.decorator.SeguroDecorator;
+import com.pgii.eventos.patterns.structural.decorator.VIPDecorator;
 import com.pgii.eventos.repository.*;
 import com.pgii.eventos.service.*;
 import com.pgii.eventos.patterns.creational.builder.CompraBuilder;
 import com.pgii.eventos.patterns.creational.factory.EventoFactory;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class Main {
@@ -70,7 +79,7 @@ public class Main {
         adminService.pausarEvento("E001");
         System.out.println("Evento E001 pausado. Nuevo estado: " + eventoService.buscarEvento("E001").getEstado());
 
-        // ========== DEMOSTRACIÓN DE PATRONES CREACIONALES ==========
+        // ========== DEMOSTRACIÓN DE PATRONES CREACIONALES Y ESTRUCTURALES ==========
         System.out.println("\n=== Demostración de patrones creacionales ===");
         // Factory Method
         Recinto algunRecinto = recintoRepo.findAll().isEmpty() ? null : recintoRepo.findAll().get(0);
@@ -80,17 +89,34 @@ public class Main {
             System.out.println("Evento creado con Factory: " + nuevoEvento.getNombre() + " - Políticas: " + nuevoEvento.getPoliticas());
         }
 
-        // Builder para compra
+        // Builder y Decorator
         if (zonaVIP != null && asientoLibre != null && eventoJuanes != null) {
-            Compra compraConBuilder = new CompraBuilder()
-                    .setIdCompra("C010")
-                    .setUsuario(juan)
-                    .setEvento(eventoJuanes)
-                    .addItem(new Entrada("ENT010", eventoJuanes, zonaVIP, asientoLibre, zonaVIP.getPrecioBase()))
-                    .build();
-            System.out.println("Compra construida con Builder: " + compraConBuilder.getIdCompra() + " Total: " + compraConBuilder.getTotal());
-            // Opcional: guardarla
-            // compraService.crearCompraConBuilder(new CompraBuilder()...);
+            ItemCompra entradaBase = new Entrada("ENT100", eventoJuanes, zonaVIP, asientoLibre, zonaVIP.getPrecioBase());
+            ItemCompra entradaConVIP = new VIPDecorator(entradaBase);
+            ItemCompra entradaConVIPySeguro = new SeguroDecorator(entradaConVIP);
+            ItemCompra entradaCompleta = new ParqueaderoDecorator(new MerchandisingDecorator(entradaConVIPySeguro));
+
+            System.out.println("Entrada base: $" + entradaBase.getPrecio());
+            System.out.println("+ VIP: $" + entradaConVIP.getPrecio());
+            System.out.println("+ Seguro: $" + entradaConVIPySeguro.getPrecio());
+            System.out.println("+ Merchandising + Parqueadero: $" + entradaCompleta.getPrecio());
+            System.out.println("Descripción final: " + entradaCompleta.getDescripcion());
+        }
+
+        // ========== DEMOSTRACIÓN DE ADAPTER (REPORTES) ==========
+        System.out.println("\n=== Generando reporte con Adapter ===");
+        try {
+            ReporteService reporteService = new ReporteService(compraRepo);
+            IReporteExporter csvExporter = new ApachePOICSVAdapter();
+            IReporteExporter pdfExporter = new PDFBoxAdapter();
+            reporteService.generarReporteVentasPorPeriodo(LocalDate.now().minusMonths(1), LocalDate.now(), csvExporter, "ventas.xlsx");
+            System.out.println("Reporte CSV/Excel generado en ventas.xlsx");
+            // También puedes generar PDF:
+            // reporteService.generarReporteVentasPorPeriodo(LocalDate.now().minusMonths(1), LocalDate.now(), pdfExporter, "ventas.pdf");
+            // System.out.println("Reporte PDF generado en ventas.pdf");
+        } catch (Exception e) {
+            System.err.println("Error al generar reporte: " + e.getMessage());
+            e.printStackTrace();
         }
 
         System.out.println("\nBackend funcionando correctamente.");

@@ -1,6 +1,9 @@
 package com.pgii.eventos.model;
+import java.util.List;
 
-public class Asiento {
+import com.pgii.eventos.patterns.structural.composite.ComponenteRecinto;
+
+public class Asiento implements ComponenteRecinto {
     private String idAsiento;
     private String fila;
     private int numero;
@@ -35,4 +38,17 @@ public class Asiento {
     public String toString() {
         return "Asiento " + fila + numero + " (" + estado + ")";
     }
+    @Override
+    public int getCapacidadTotal() { return 1; }
+
+    @Override
+    public int getOcupacionActual() {
+        return (getEstado() == EstadoAsiento.VENDIDO || getEstado() == EstadoAsiento.RESERVADO) ? 1 : 0;
+    }
+
+    @Override
+    public String getNombre() { return "Asiento " + fila + numero; }
+
+    @Override
+    public List<ComponenteRecinto> getHijos() { return List.of(); }
 }

@@ -3,6 +3,9 @@ package com.pgii.eventos.service;
 import com.pgii.eventos.model.*;
 
 import com.pgii.eventos.patterns.creational.builder.CompraBuilder;
+import com.pgii.eventos.patterns.structural.decorator.MerchandisingDecorator;
+import com.pgii.eventos.patterns.structural.decorator.ParqueaderoDecorator;
+import com.pgii.eventos.patterns.structural.decorator.VIPDecorator;
 import com.pgii.eventos.repository.CompraRepository;
 import com.pgii.eventos.repository.AsientoRepository;
 
@@ -94,4 +97,6 @@ public class CompraService {
         compra.getUsuario().agregarCompra(compra);
         return compra;
     }
+
+
 }

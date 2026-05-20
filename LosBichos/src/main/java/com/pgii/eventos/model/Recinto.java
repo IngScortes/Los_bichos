@@ -1,9 +1,11 @@
 package com.pgii.eventos.model;
 
+import com.pgii.eventos.patterns.structural.composite.ComponenteRecinto;
+
 import java.util.ArrayList;
 import java.util.List;
 
-public class Recinto {
+public class Recinto implements ComponenteRecinto {
     private String idRecinto;
     private String nombre;
     private String direccion;
@@ -45,5 +47,19 @@ public class Recinto {
     @Override
     public String toString() {
         return nombre + " (" + ciudad + ")";
+    }
+    @Override
+    public int getCapacidadTotal() {
+        return zonas.stream().mapToInt(ComponenteRecinto::getCapacidadTotal).sum();
+    }
+
+    @Override
+    public int getOcupacionActual() {
+        return zonas.stream().mapToInt(ComponenteRecinto::getOcupacionActual).sum();
+    }
+
+    @Override
+    public List<ComponenteRecinto> getHijos() {
+        return new ArrayList<>(zonas);
     }
 }

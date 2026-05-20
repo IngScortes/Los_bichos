@@ -1,9 +1,11 @@
 package com.pgii.eventos.model;
 
+import com.pgii.eventos.patterns.structural.composite.ComponenteRecinto;
+
 import java.util.ArrayList;
 import java.util.List;
 
-public class Zona {
+public class Zona implements ComponenteRecinto{
     private String idZona;
     private String nombre;
     private int capacidad;
@@ -52,5 +54,19 @@ public class Zona {
     @Override
     public String toString() {
         return nombre + " (Capacidad: " + capacidad + ", Precio base: " + precioBase + ")";
+    }
+    @Override
+    public int getCapacidadTotal() {
+        return asientos.stream().mapToInt(ComponenteRecinto::getCapacidadTotal).sum();
+    }
+
+    @Override
+    public int getOcupacionActual() {
+        return asientos.stream().mapToInt(ComponenteRecinto::getOcupacionActual).sum();
+    }
+
+    @Override
+    public List<ComponenteRecinto> getHijos() {
+        return new ArrayList<>(asientos);
     }
 }
