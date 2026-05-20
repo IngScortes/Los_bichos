@@ -3,6 +3,7 @@ package com.pgii.eventos.patterns.structural.adapter;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import java.util.List;
 
@@ -13,7 +14,9 @@ public class PDFBoxAdapter implements IReporteExporter {
             PDPage page = new PDPage();
             doc.addPage(page);
             try (PDPageContentStream cs = new PDPageContentStream(doc, page)) {
-                cs.setFont(PDType1Font.HELVETICA_BOLD, 12);
+                //  Línea corregida - esta es la sintaxis correcta para PDFBox 2.x
+                cs.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD), 12);
+
                 float y = 750;
                 float margin = 50;
                 for (String[] fila : filas) {
@@ -29,4 +32,3 @@ public class PDFBoxAdapter implements IReporteExporter {
             doc.save(rutaArchivo);
         }
     }
-}
