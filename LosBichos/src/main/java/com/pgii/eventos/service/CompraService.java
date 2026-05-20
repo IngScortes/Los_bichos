@@ -2,6 +2,8 @@ package com.pgii.eventos.service;
 
 import com.pgii.eventos.model.*;
 
+import com.pgii.eventos.patterns.behavioral.strategy.MetodoPago;
+import com.pgii.eventos.patterns.behavioral.strategy.ResultadoPago;
 import com.pgii.eventos.patterns.creational.builder.CompraBuilder;
 import com.pgii.eventos.patterns.structural.decorator.MerchandisingDecorator;
 import com.pgii.eventos.patterns.structural.decorator.ParqueaderoDecorator;
@@ -67,25 +69,19 @@ public class CompraService {
         compraRepository.save(compra);
     }
 
-    public void pagarCompra(Compra compra, String metodoPago) {
+    public ResultadoPago pagarCompraConStrategy(Compra compra, MetodoPago metodo) {
         if (compra.getEstado() != EstadoCompra.CREADA) {
-            throw new IllegalStateException("La compra ya fue pagada o cancelada");
+            throw new IllegalStateException("Compra no está en estado CREADA");
         }
-        Pago pago = new Pago("PAG" + System.currentTimeMillis(), metodoPago, compra.getTotal(), LocalDateTime.now());
-        pago.setEstado(EstadoPago.APROBADO); // simulación
-        compra.setPago(pago);
-        compra.setEstado(EstadoCompra.PAGADA);
-        // Cambiar estado de asientos a VENDIDO
-        for (ItemCompra item : compra.getItems()) {
-            if (item instanceof Entrada) {
-                Entrada e = (Entrada) item;
-                if (e.getAsiento() != null) {
-                    e.getAsiento().setEstado(EstadoAsiento.VENDIDO);
-                    asientoRepository.save(e.getAsiento());
-                }
-            }
+        ResultadoPago resultado = metodo.procesarPago(compra.getTotal());
+        if (resultado.isExitoso()) {
+            Pago pago = new Pago("PAG" + System.currentTimeMillis(), metodo.getClass().getSimpleName(), compra.getTotal(), LocalDateTime.now());
+            pago.setEstado(EstadoPago.APROBADO);
+            compra.setPago(pago);
+            compra.setEstado(EstadoCompra.PAGADA);
+            compraRepository.save(compra);
         }
-        compraRepository.save(compra);
+        return resultado;
     }
 
     public Compra buscarCompra(String id) {

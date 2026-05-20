@@ -1,6 +1,11 @@
 package com.pgii.eventos.app;
 
 import com.pgii.eventos.model.*;
+import com.pgii.eventos.patterns.behavioral.command.CancelarCompraComando;
+import com.pgii.eventos.patterns.behavioral.command.Comando;
+import com.pgii.eventos.patterns.behavioral.command.InvocadorComandos;
+import com.pgii.eventos.patterns.behavioral.observer.NotificadorConsola;
+import com.pgii.eventos.patterns.behavioral.strategy.*;
 import com.pgii.eventos.patterns.structural.adapter.ApachePOICSVAdapter;
 import com.pgii.eventos.patterns.structural.adapter.IReporteExporter;
 import com.pgii.eventos.patterns.structural.adapter.PDFBoxAdapter;
@@ -65,9 +70,6 @@ public class Main {
             System.out.println("\nEntrada agregada: " + entrada.getDescripcion());
         }
 
-        // 4. Pagar compra
-        compraService.pagarCompra(nuevaCompra, "Tarjeta crédito");
-        System.out.println("Compra pagada. Estado: " + nuevaCompra.getEstado());
 
         // 5. Ver historial de compras de Juan
         System.out.println("\nHistorial de compras de Juan:");
@@ -118,6 +120,33 @@ public class Main {
             System.err.println("Error al generar reporte: " + e.getMessage());
             e.printStackTrace();
         }
+        // ========== DEMOSTRACIÓN DE PATRONES DE COMPORTAMIENTO ==========
+        System.out.println("\n=== Strategy: Pago con diferentes métodos ===");
+
+// Para tarjeta de crédito
+        Compra compraTC = compraService.crearCompra("C999_TC", juan, eventoJuanes);
+        Entrada entradaTC = new Entrada("ENT999_TC", eventoJuanes, zonaVIP, asientoLibre, zonaVIP.getPrecioBase());
+        compraTC.agregarItem(entradaTC);
+        MetodoPago pagoTC = new PagoTarjetaCredito("4111111111111111", "123");
+        ResultadoPago resTC = compraService.pagarCompraConStrategy(compraTC, pagoTC);
+        System.out.println("Pago con tarjeta: " + resTC.getMensaje());
+
+// Para PSE (compra nueva)
+        Compra compraPSE = compraService.crearCompra("C999_PSE", juan, eventoJuanes);
+        Entrada entradaPSE = new Entrada("ENT999_PSE", eventoJuanes, zonaVIP, asientoLibre, zonaVIP.getPrecioBase());
+        compraPSE.agregarItem(entradaPSE);
+        MetodoPago pagoPSE = new PagoPSE("usuario@banco.com", "pass123");
+        ResultadoPago resPSE = compraService.pagarCompraConStrategy(compraPSE, pagoPSE);
+        System.out.println("Pago con PSE: " + resPSE.getMensaje());
+
+// Para efectivo (compra nueva)
+        Compra compraEfectivo = compraService.crearCompra("C999_EF", juan, eventoJuanes);
+        Entrada entradaEF = new Entrada("ENT999_EF", eventoJuanes, zonaVIP, asientoLibre, zonaVIP.getPrecioBase());
+        compraEfectivo.agregarItem(entradaEF);
+        MetodoPago pagoEF = new PagoEfectivo();
+        ResultadoPago resEF = compraService.pagarCompraConStrategy(compraEfectivo, pagoEF);
+        System.out.println("Pago en efectivo: " + resEF.getMensaje());
+
 
         System.out.println("\nBackend funcionando correctamente.");
     }

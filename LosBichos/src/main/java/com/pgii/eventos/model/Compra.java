@@ -1,5 +1,7 @@
 package com.pgii.eventos.model;
 
+import com.pgii.eventos.patterns.behavioral.observer.Observador;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,6 +15,9 @@ public class Compra {
     private EstadoCompra estado;
     private List<ItemCompra> items;
     private Pago pago;
+    private List<Observador> observadores = new ArrayList<>();
+
+
 
     public Compra(String idCompra, Usuario usuario, Evento evento) {
         this.idCompra = idCompra;
@@ -63,6 +68,14 @@ public class Compra {
 
     public Pago getPago() { return pago; }
     public void setPago(Pago pago) { this.pago = pago; }
+    public void agregarObservador(Observador obs) { observadores.add(obs); }
+    public void removerObservador(Observador obs) { observadores.remove(obs); }
+
+    public void notificarObservadores(String tipoEvento, String mensaje) {
+        for (Observador obs : observadores) {
+            obs.notificar(tipoEvento, mensaje, this);
+        }
+    }
 
     @Override
     public String toString() {

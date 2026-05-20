@@ -1,6 +1,10 @@
 package com.pgii.eventos.model;
 
+import com.pgii.eventos.patterns.behavioral.observer.Observador;
+
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Evento {
     private String idEvento;
@@ -14,6 +18,7 @@ public class Evento {
     private String politicasReembolso;
     private Recinto recinto;
     private String politicas;
+    private List<Observador> observadores = new ArrayList<>();
 
     public Evento(String idEvento, String nombre, CategoriaEvento categoria, String descripcion,
                   String ciudad, LocalDateTime fechaHora, Recinto recinto) {
@@ -52,7 +57,10 @@ public class Evento {
     public void setFechaHora(LocalDateTime fechaHora) { this.fechaHora = fechaHora; }
 
     public EstadoEvento getEstado() { return estado; }
-    public void setEstado(EstadoEvento estado) { this.estado = estado; }
+    public void setEstado(EstadoEvento estado) {
+        this.estado = estado;
+        notificarObservadores("ESTADO_EVENTO", "El evento " + this.nombre + " cambió a " + estado);
+    }
 
     public String getPoliticasCancelacion() { return politicasCancelacion; }
     public void setPoliticasCancelacion(String politicasCancelacion) { this.politicasCancelacion = politicasCancelacion; }
@@ -66,5 +74,13 @@ public class Evento {
     @Override
     public String toString() {
         return nombre + " - " + fechaHora + " (" + estado + ")";
+    }
+
+    public void agregarObservador(Observador obs) { observadores.add(obs); }
+    public void removerObservador(Observador obs) { observadores.remove(obs); }
+    public void notificarObservadores(String tipoEvento, String mensaje) {
+        for (Observador obs : observadores) {
+            obs.notificar(tipoEvento, mensaje, this);
+        }
     }
 }
