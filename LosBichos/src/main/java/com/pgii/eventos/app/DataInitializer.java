@@ -116,11 +116,15 @@ public class DataInitializer {
         user3.agregarMetodoPago("Efectivo");
 
         Administrador admin = new Administrador("AD001", "Admin Principal", "admin@eventos.com", "600555666");
+        adminRepo.save(admin);
+        System.out.println("=== ADMIN CREADO ===");
+        System.out.println("Email: " + admin.getEmail());
+        System.out.println("Total admins en repo: " + adminRepo.findAll().size());
 
         usuarioRepo.save(user1);
         usuarioRepo.save(user2);
         usuarioRepo.save(user3);
-        adminRepo.save(admin);
+
 
         java.util.function.BiFunction<Evento, Zona, ItemCompra> crearEntradaBase = (ev, zona) -> {
             Asiento asiento = zona.getAsientos().stream().findFirst().orElse(null);

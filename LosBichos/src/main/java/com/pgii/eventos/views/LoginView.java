@@ -1,7 +1,10 @@
 package com.pgii.eventos.views;
 
-import com.pgii.eventos.model.Usuario;
+import com.pgii.eventos.app.DataInitializer;
+import com.pgii.eventos.model.*;
+import com.pgii.eventos.repository.*;
 import com.pgii.eventos.service.GestorSesion;
+import com.pgii.eventos.service.UsuarioService;
 import javafx.animation.FadeTransition;
 import javafx.animation.ScaleTransition;
 import javafx.geometry.Insets;
@@ -18,36 +21,65 @@ import java.util.Map;
 public class LoginView {
     private Stage stage;
     private VBox root;
+    private UsuarioService usuarioService;
+    private AdministradorRepository adminRepository;
+    private UsuarioRepository usuarioRepository;
 
-    // Mapa de credenciales y usuarios simulados
+    // Mapa de credenciales válidas (email + contraseña)
     private Map<String, String> credencialesValidas;
-    private Map<String, Usuario> usuariosPorEmail;
 
     public LoginView(Stage stage) {
         this.stage = stage;
-        inicializarCredencialesYUsuarios();
+        inicializarServicios();
+        cargarDatosIniciales();
+        asegurarAdminExistente();
+        inicializarCredenciales();
         crearUI();
     }
 
-    private void inicializarCredencialesYUsuarios() {
+    private void inicializarServicios() {
+        this.usuarioRepository = new UsuarioRepository();
+        this.usuarioService = new UsuarioService(usuarioRepository);
+        this.adminRepository = new AdministradorRepository();
+    }
+
+    private void cargarDatosIniciales() {
+        RecintoRepository recintoRepo = new RecintoRepository();
+        ZonaRepository zonaRepo = new ZonaRepository();
+        AsientoRepository asientoRepo = new AsientoRepository();
+        EventoRepository eventoRepo = new EventoRepository();
+        UsuarioRepository usuarioRepo = new UsuarioRepository();
+        AdministradorRepository adminRepo = new AdministradorRepository();
+        CompraRepository compraRepo = new CompraRepository();
+
+        DataInitializer.inicializar(recintoRepo, zonaRepo, asientoRepo, eventoRepo,
+                usuarioRepo, adminRepo, compraRepo);
+    }
+
+    private void asegurarAdminExistente() {
+        // Verificar si ya existe un administrador
+        if (adminRepository.findAll().isEmpty()) {
+            Administrador admin = new Administrador("AD001", "Administrador", "admin@eventos.com", "600555666");
+            adminRepository.save(admin);
+            System.out.println("✅ Administrador creado manualmente");
+        } else {
+            System.out.println("✅ Administrador ya existe");
+        }
+
+        // Mostrar todos los admins para depuración
+        System.out.println("=== ADMINISTRADORES EN REPOSITORIO ===");
+        for (Administrador a : adminRepository.findAll()) {
+            System.out.println("Admin: " + a.getEmail() + " - " + a.getNombreCompleto());
+        }
+    }
+
+    private void inicializarCredenciales() {
         credencialesValidas = new HashMap<>();
-        usuariosPorEmail = new HashMap<>();
-
-        // Usuarios simulados con sus contraseñas
-        Usuario juan = new Usuario("U001", "Juan Pérez", "juan@mail.com", "300111222");
-        Usuario maria = new Usuario("U002", "María Gómez", "maria@mail.com", "310333444");
-        Usuario carlos = new Usuario("U003", "Carlos López", "carlos@mail.com", "320555666");
-        Usuario admin = new Usuario("AD001", "Administrador", "admin@eventos.com", "600555666");
-
+        // Usuarios con sus contraseñas
         credencialesValidas.put("juan@mail.com", "123456");
         credencialesValidas.put("maria@mail.com", "maria123");
         credencialesValidas.put("carlos@mail.com", "carlos123");
         credencialesValidas.put("admin@eventos.com", "admin123");
-
-        usuariosPorEmail.put("juan@mail.com", juan);
-        usuariosPorEmail.put("maria@mail.com", maria);
-        usuariosPorEmail.put("carlos@mail.com", carlos);
-        usuariosPorEmail.put("admin@eventos.com", admin);
     }
 
     private void crearUI() {
@@ -55,6 +87,7 @@ public class LoginView {
         root.setAlignment(Pos.CENTER);
         root.setStyle("-fx-background-color: linear-gradient(to bottom right, #667eea, #764ba2);");
 
+        // Panel principal con efecto glassmorphism
         VBox mainPanel = new VBox(25);
         mainPanel.setAlignment(Pos.CENTER);
         mainPanel.setMaxWidth(450);
@@ -65,6 +98,7 @@ public class LoginView {
                         "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 20, 0, 0, 10);"
         );
 
+        // Logo o ícono
         VBox logoBox = new VBox(10);
         logoBox.setAlignment(Pos.CENTER);
 
@@ -79,23 +113,27 @@ public class LoginView {
 
         logoBox.getChildren().addAll(iconLabel, titulo, subtitulo);
 
+        // Separador
         Separator separator = new Separator();
         separator.setStyle("-fx-background-color: #e0e0e0;");
 
+        // Formulario
         VBox formBox = new VBox(15);
 
         Label lblEmail = new Label("Correo Electrónico");
         lblEmail.setStyle("-fx-font-weight: bold; -fx-text-fill: #555;");
         TextField txtEmail = new TextField();
         txtEmail.setPromptText("usuario@ejemplo.com");
-        txtEmail.setText("juan@mail.com");
+        txtEmail.setText("admin@eventos.com");
+        txtEmail.getStyleClass().add("text-field");
 
         Label lblPassword = new Label("Contraseña");
         lblPassword.setStyle("-fx-font-weight: bold; -fx-text-fill: #555;");
         PasswordField txtPassword = new PasswordField();
         txtPassword.setPromptText("Ingrese su contraseña");
-        txtPassword.setText("123456");
+        txtPassword.setText("admin123");
 
+        // Botón de login con animación
         Button btnLogin = new Button("Iniciar Sesión");
         btnLogin.setStyle(
                 "-fx-background-color: linear-gradient(to right, #667eea, #764ba2);" +
@@ -107,6 +145,7 @@ public class LoginView {
                         "-fx-cursor: hand;"
         );
 
+        // Efecto hover
         btnLogin.setOnMouseEntered(e -> {
             btnLogin.setScaleX(1.02);
             btnLogin.setScaleY(1.02);
@@ -116,25 +155,59 @@ public class LoginView {
             btnLogin.setScaleY(1);
         });
 
+        // Acción del botón login - VERSIÓN CORREGIDA
         btnLogin.setOnAction(e -> {
             String email = txtEmail.getText();
             String password = txtPassword.getText();
 
-            String passValida = credencialesValidas.get(email);
-            if (passValida != null && passValida.equals(password)) {
-                Usuario usuario = usuariosPorEmail.get(email);
-                if (usuario != null) {
-                    GestorSesion.getInstance().setUsuarioActivo(usuario);
-                    System.out.println("✅ Login exitoso: " + usuario.getNombreCompleto());
-                    mostrarDashboard();
-                } else {
-                    mostrarAlerta("Error", "Usuario no encontrado");
+            System.out.println("=== INTENTO DE LOGIN ===");
+            System.out.println("Email: " + email);
+
+            // Validar credenciales
+            if (!validarCredenciales(email, password)) {
+                mostrarAlerta("Error de Autenticación", "Correo o contraseña incorrectos\n\nCredenciales:\nadmin@eventos.com / admin123");
+                return;
+            }
+
+            Persona usuario = null;
+
+            // 1. Buscar en administradores
+            System.out.println("Buscando en Administradores...");
+            for (Administrador admin : adminRepository.findAll()) {
+                System.out.println(" - Admin: " + admin.getEmail());
+                if (admin.getEmail().equals(email)) {
+                    usuario = admin;
+                    System.out.println("✅ Admin encontrado: " + admin.getNombreCompleto());
+                    break;
                 }
+            }
+
+            // 2. Buscar en usuarios normales
+            if (usuario == null) {
+                System.out.println("Buscando en Usuarios normales...");
+                for (Usuario u : usuarioService.listarTodos()) {
+                    System.out.println(" - Usuario: " + u.getEmail());
+                    if (u.getEmail().equals(email)) {
+                        usuario = u;
+                        System.out.println("✅ Usuario encontrado: " + u.getNombreCompleto());
+                        break;
+                    }
+                }
+            }
+
+            if (usuario != null) {
+                GestorSesion.getInstance().setUsuarioActivo(usuario);
+                System.out.println("✅ Login exitoso: " + usuario.getNombreCompleto());
+                System.out.println("Tipo: " + usuario.getClass().getSimpleName());
+                System.out.println("¿Es admin? " + (usuario instanceof Administrador));
+                mostrarDashboard();
             } else {
-                mostrarAlerta("Error de Autenticación", "Correo o contraseña incorrectos\n\nCredenciales de prueba:\njuan@mail.com / 123456");
+                System.out.println("❌ Usuario NO encontrado en ningún repositorio");
+                mostrarAlerta("Error", "Usuario no encontrado en el sistema.\nContacte al administrador.");
             }
         });
 
+        // Enlace de registro
         HBox registroBox = new HBox(5);
         registroBox.setAlignment(Pos.CENTER);
         Label lblRegistro = new Label("¿No tienes cuenta?");
@@ -147,6 +220,7 @@ public class LoginView {
 
         mainPanel.getChildren().addAll(logoBox, separator, formBox);
 
+        // Animación de entrada
         FadeTransition fadeIn = new FadeTransition(Duration.seconds(0.8), mainPanel);
         fadeIn.setFromValue(0);
         fadeIn.setToValue(1);
@@ -162,11 +236,28 @@ public class LoginView {
         root.getChildren().add(mainPanel);
     }
 
+    private boolean validarCredenciales(String email, String password) {
+        if (email == null || password == null) return false;
+        String passValida = credencialesValidas.get(email);
+        return passValida != null && passValida.equals(password);
+    }
+
     private void mostrarDashboard() {
-        DashboardView dashboard = new DashboardView(stage);
-        Scene scene = new Scene(dashboard.getRoot(), 1300, 800);
-        stage.setScene(scene);
-        stage.setTitle("Plataforma de Gestión - Dashboard");
+        try {
+            System.out.println("=== CARGANDO DASHBOARD ===");
+            DashboardView dashboard = new DashboardView(stage);
+            System.out.println("DashboardView creado correctamente");
+
+            Scene scene = new Scene(dashboard.getRoot(), 1300, 800);
+            stage.setScene(scene);
+            stage.setTitle("Plataforma de Gestión - Dashboard");
+            System.out.println("Dashboard cargado exitosamente");
+
+        } catch (Exception e) {
+            System.out.println("ERROR al cargar Dashboard: " + e.getMessage());
+            e.printStackTrace();
+            mostrarAlerta("Error", "No se pudo cargar el Dashboard: " + e.getMessage());
+        }
     }
 
     private void mostrarAlerta(String titulo, String mensaje) {

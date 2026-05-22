@@ -4,6 +4,7 @@ import com.pgii.eventos.model.*;
 import com.pgii.eventos.patterns.behavioral.observer.Observador;
 import com.pgii.eventos.repository.*;
 import com.pgii.eventos.service.*;
+import com.pgii.eventos.views.MetricasView;
 import javafx.animation.FadeTransition;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -12,7 +13,6 @@ import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.chart.*;
 import javafx.scene.control.*;
-import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
@@ -37,6 +37,7 @@ public class DashboardView implements Observador {
     private ListView<String> listViewNotificaciones;
     private PieChart pieChartVentas;
     private BarChart<String, Number> barChartEventos;
+    private TabPane tabPane;
 
     public DashboardView(Stage stage) {
         this.stage = stage;
@@ -92,7 +93,6 @@ public class DashboardView implements Observador {
         logoTitulo.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #667eea;");
         logoBox.getChildren().addAll(logoIcon, logoTitulo);
 
-        // Spacer
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
@@ -132,15 +132,23 @@ public class DashboardView implements Observador {
         menu.setPadding(new Insets(20, 15, 20, 15));
         menu.setStyle("-fx-background-color: white; -fx-min-width: 220;");
 
-        String[] menuItems = {"📊 Dashboard", "🎪 Eventos", "🎟️ Mis Compras", "📈 Métricas", "⚙️ Configuración"};
+        Button btnDashboard = crearBotonMenu("📊 Dashboard", true);
+        btnDashboard.setOnAction(e -> seleccionarTab(0));
 
-        for (int i = 0; i < menuItems.length; i++) {
-            Button btn = crearBotonMenu(menuItems[i], i == 0);
-            menu.getChildren().add(btn);
-        }
+        Button btnEventos = crearBotonMenu("🎪 Eventos", false);
+        btnEventos.setOnAction(e -> seleccionarTab(1));
+
+        Button btnMisCompras = crearBotonMenu("🎟️ Mis Compras", false);
+        btnMisCompras.setOnAction(e -> seleccionarTab(2));
+
+        Button btnMetricas = crearBotonMenu("📈 Métricas", false);
+        btnMetricas.setOnAction(e -> seleccionarTab(3));
+
+        menu.getChildren().addAll(btnDashboard, btnEventos, btnMisCompras, btnMetricas);
 
         if (GestorSesion.getInstance().isAdmin()) {
             Button btnAdmin = crearBotonMenu("👑 Administrador", false);
+            btnAdmin.setOnAction(e -> mostrarAdminView());
             menu.getChildren().add(btnAdmin);
         }
 
@@ -175,7 +183,7 @@ public class DashboardView implements Observador {
     }
 
     private Node crearPanelCentral() {
-        TabPane tabPane = new TabPane();
+        tabPane = new TabPane();
         tabPane.setStyle("-fx-background-color: transparent;");
 
         Tab tabDashboard = new Tab("Dashboard");
@@ -199,7 +207,13 @@ public class DashboardView implements Observador {
         return tabPane;
     }
 
-    private Node crearDashboardContent() {
+    private void seleccionarTab(int index) {
+        if (tabPane != null && index < tabPane.getTabs().size()) {
+            tabPane.getSelectionModel().select(index);
+        }
+    }
+
+    private ScrollPane crearDashboardContent() {
         ScrollPane scrollPane = new ScrollPane();
         scrollPane.setFitToWidth(true);
         scrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
@@ -271,47 +285,27 @@ public class DashboardView implements Observador {
         return lblValor;
     }
 
-    private Node crearEventosContent() {
-        VBox content = new VBox(15);
-        content.setPadding(new Insets(20));
-        content.setAlignment(Pos.CENTER);
-
-        Label label = new Label("🎪 Lista de Eventos");
-        label.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #333;");
-
-        Label sublabel = new Label("Próximamente: Visualización y compra de entradas");
-        sublabel.setStyle("-fx-text-fill: #888;");
-
-        content.getChildren().addAll(label, sublabel);
-        return content;
+    private VBox crearEventosContent() {
+        EventosView eventosView = new EventosView(stage);
+        return eventosView.getRoot();
     }
 
     private Node crearComprasContent() {
-        VBox content = new VBox(15);
-        content.setPadding(new Insets(20));
-        content.setAlignment(Pos.CENTER);
+        MisComprasView misComprasView = new MisComprasView(stage);
+        return misComprasView.getRoot();
 
-        Label label = new Label("🎟️ Mis Compras");
-        label.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #333;");
-
-        Label sublabel = new Label("Próximamente: Historial de compras y cancelaciones");
-        sublabel.setStyle("-fx-text-fill: #888;");
-
-        content.getChildren().addAll(label, sublabel);
-        return content;
     }
 
     private Node crearMetricasContent() {
-        VBox content = new VBox(20);
-        content.setPadding(new Insets(20));
-
-        pieChartVentas = new PieChart();
-        pieChartVentas.setTitle("Ventas por Categoría");
-        pieChartVentas.setPrefHeight(400);
-        pieChartVentas.setStyle("-fx-background-color: white; -fx-background-radius: 15px; -fx-padding: 20;");
-
-        content.getChildren().add(pieChartVentas);
-        return content;
+        try {
+            MetricasView metricasView = new MetricasView(stage);
+            return metricasView.getRoot();
+        } catch (Exception e) {
+            e.printStackTrace();
+            VBox errorBox = new VBox();
+            errorBox.getChildren().add(new Label("Error al cargar Métricas: " + e.getMessage()));
+            return errorBox;
+        }
     }
 
     private void cargarMetricas() {
@@ -356,6 +350,7 @@ public class DashboardView implements Observador {
     }
 
     private void cargarGraficoTorta() {
+            if (pieChartVentas == null) return;  
         Map<CategoriaEvento, Integer> ventasPorCategoria = new HashMap<>();
         for (Compra c : compraRepository.findAll()) {
             if (c.getEstado() == EstadoCompra.PAGADA) {
@@ -366,8 +361,7 @@ public class DashboardView implements Observador {
 
         pieChartVentas.getData().clear();
         for (Map.Entry<CategoriaEvento, Integer> entry : ventasPorCategoria.entrySet()) {
-            PieChart.Data data = new PieChart.Data(entry.getKey().toString(), entry.getValue());
-            pieChartVentas.getData().add(data);
+            pieChartVentas.getData().add(new PieChart.Data(entry.getKey().toString(), entry.getValue()));
         }
     }
 
@@ -393,12 +387,32 @@ public class DashboardView implements Observador {
         });
     }
 
+    private void mostrarAdminView() {
+        try {
+            AdminView adminView = new AdminView(stage);
+            Scene scene = new Scene(adminView.getRoot(), 1300, 800);
+            stage.setScene(scene);
+            stage.setTitle("Plataforma de Gestión - Administrador");
+        } catch (Exception e) {
+            e.printStackTrace();
+            mostrarAlerta("Error", "No se pudo cargar AdminView: " + e.getMessage());
+        }
+    }
+
     private void volverLogin() {
         GestorSesion.getInstance().cerrarSesion();
         LoginView loginView = new LoginView(stage);
         Scene scene = new Scene(loginView.getRoot(), 900, 600);
         stage.setScene(scene);
         stage.setTitle("Plataforma de Gestión - Login");
+    }
+
+    private void mostrarAlerta(String titulo, String mensaje) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(titulo);
+        alert.setHeaderText(null);
+        alert.setContentText(mensaje);
+        alert.showAndWait();
     }
 
     public BorderPane getRoot() {
