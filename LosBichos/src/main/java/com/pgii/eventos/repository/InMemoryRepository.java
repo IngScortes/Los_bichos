@@ -29,11 +29,16 @@ public abstract class InMemoryRepository<T> implements IRepository<T> {
         String id = idExtractor.apply(entity);
         if (id != null) {
             storage.put(id, entity);
+            System.out.println("✅ Guardado en " + this.getClass().getSimpleName() + ": " + id);
         }
     }
 
     @Override
     public void deleteById(String id) {
         storage.remove(id);
+    }
+
+    public void clear() {
+        storage.clear();
     }
 }

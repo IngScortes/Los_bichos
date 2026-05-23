@@ -2,13 +2,12 @@ package com.pgii.eventos.views;
 
 import com.pgii.eventos.model.*;
 import com.pgii.eventos.repository.*;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
+import javafx.geometry.*;
 import javafx.scene.chart.*;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
-import java.text.NumberFormat;
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -17,20 +16,19 @@ import java.util.stream.Collectors;
 public class MetricasView {
     private Stage stage;
     private VBox root;
-    private CompraRepository compraRepository;
-    private EventoRepository eventoRepository;
-    private UsuarioRepository usuarioRepository;
+    private EventoRepository eventoRepo;
+    private CompraRepository compraRepo;
+    private UsuarioRepository usuarioRepo;
+    private AsientoRepository asientoRepo;
 
     public MetricasView(Stage stage) {
         this.stage = stage;
-        inicializarServicios();
+        this.eventoRepo = EventoRepository.getInstance();
+        this.compraRepo = CompraRepository.getInstance();
+        this.usuarioRepo = UsuarioRepository.getInstance();
+        this.asientoRepo = AsientoRepository.getInstance();
         crearUI();
-    }
-
-    private void inicializarServicios() {
-        this.compraRepository = new CompraRepository();
-        this.eventoRepository = new EventoRepository();
-        this.usuarioRepository = new UsuarioRepository();
+        cargarMetricas();
     }
 
     private void crearUI() {
@@ -38,164 +36,89 @@ public class MetricasView {
         root.setPadding(new Insets(20));
         root.setStyle("-fx-background-color: #f0f2f5;");
 
-        // Título
         Label titulo = new Label("📊 Métricas y Estadísticas");
         titulo.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #333;");
 
-        // Scroll principal
-        ScrollPane scrollPane = new ScrollPane();
-        scrollPane.setFitToWidth(true);
-        scrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
-
-        VBox content = new VBox(20);
-        content.setPadding(new Insets(10));
-
-        // Fila 1: Tarjetas de KPIs
-        HBox kpiRow = crearKPIs();
-
-        // Fila 2: Gráficos principales
-        HBox graficosRow = new HBox(20);
-        graficosRow.setAlignment(Pos.CENTER);
-
-        // Gráfico de barras - Ventas por mes
-        VBox ventasMesBox = crearGraficoVentasPorMes();
-
-        // Gráfico de torta - Ventas por categoría
-        VBox categoriaBox = crearGraficoPorCategoria();
-
-        graficosRow.getChildren().addAll(ventasMesBox, categoriaBox);
-
-        // Fila 3: Tabla de eventos más vendidos
-        VBox topEventosBox = crearTablaTopEventos();
-
-        // Fila 4: Estadísticas adicionales
-        VBox estadisticasBox = crearEstadisticasAdicionales();
-
-        content.getChildren().addAll(kpiRow, graficosRow, topEventosBox, estadisticasBox);
-        scrollPane.setContent(content);
-
-        root.getChildren().addAll(titulo, scrollPane);
+        root.getChildren().add(titulo);
     }
 
-    private HBox crearKPIs() {
-        HBox panel = new HBox(20);
-        panel.setAlignment(Pos.CENTER);
+    private void cargarMetricas() {
+        root.getChildren().removeIf(n -> n != root.getChildren().get(0));
 
-        List<Compra> compras = compraRepository.findAll();
-        List<Compra> comprasPagadas = compras.stream()
+        // ========== 1. KPIs principales ==========
+        GridPane kpiGrid = new GridPane();
+        kpiGrid.setHgap(20);
+        kpiGrid.setVgap(20);
+
+        long totalEventos = eventoRepo.findAll().size();
+        long totalEventosPublicados = eventoRepo.findAll().stream()
+                .filter(e -> e.getEstado() == EstadoEvento.PUBLICADO).count();
+        long totalCompras = compraRepo.findAll().size();
+        long totalComprasPagadas = compraRepo.findAll().stream()
+                .filter(c -> c.getEstado() == EstadoCompra.PAGADA).count();
+        double ingresosTotales = compraRepo.findAll().stream()
                 .filter(c -> c.getEstado() == EstadoCompra.PAGADA)
-                .collect(Collectors.toList());
+                .mapToDouble(Compra::getTotal).sum();
+        long totalUsuarios = usuarioRepo.findAll().size();
+        long ticketsVendidos = compraRepo.findAll().stream()
+                .filter(c -> c.getEstado() == EstadoCompra.PAGADA)
+                .mapToInt(c -> c.getItems().size()).sum();
 
-        double ingresosTotales = comprasPagadas.stream()
-                .mapToDouble(Compra::getTotal)
-                .sum();
+        // Asientos totales y ocupados
+        long totalAsientos = asientoRepo.findAll().size();
+        long asientosOcupados = asientoRepo.findAll().stream()
+                .filter(a -> a.getEstado() == EstadoAsiento.VENDIDO || a.getEstado() == EstadoAsiento.RESERVADO)
+                .count();
+        double porcentajeOcupacion = totalAsientos > 0 ? (asientosOcupados * 100.0 / totalAsientos) : 0;
 
-        long totalEventos = eventoRepository.findAll().size();
-        long totalUsuarios = usuarioRepository.findAll().size();
-        long ticketsVendidos = comprasPagadas.stream()
-                .mapToLong(c -> c.getItems().size())
-                .sum();
+        kpiGrid.add(crearCard("🎪 Total Eventos", String.valueOf(totalEventos), "#667eea"), 0, 0);
+        kpiGrid.add(crearCard("📢 Eventos Publicados", String.valueOf(totalEventosPublicados), "#43e97b"), 1, 0);
+        kpiGrid.add(crearCard("🛒 Total Compras", String.valueOf(totalCompras), "#f093fb"), 2, 0);
+        kpiGrid.add(crearCard("✅ Compras Pagadas", String.valueOf(totalComprasPagadas), "#4facfe"), 3, 0);
+        kpiGrid.add(crearCard("💰 Ingresos Totales", "$" + String.format("%,.0f", ingresosTotales), "#e94560"), 0, 1);
+        kpiGrid.add(crearCard("👥 Usuarios", String.valueOf(totalUsuarios), "#f39c12"), 1, 1);
+        kpiGrid.add(crearCard("🎫 Tickets Vendidos", String.valueOf(ticketsVendidos), "#1abc9c"), 2, 1);
+        kpiGrid.add(crearCard("🪑 Ocupación", String.format("%.1f%%", porcentajeOcupacion), "#9b59b6"), 3, 1);
 
-        NumberFormat formato = NumberFormat.getInstance(Locale.US);
-
-        VBox card1 = crearCardKPI("💰 Ingresos Totales", "$" + formato.format(ingresosTotales), "#43e97b");
-        VBox card2 = crearCardKPI("🎫 Tickets Vendidos", String.valueOf(ticketsVendidos), "#667eea");
-        VBox card3 = crearCardKPI("🎪 Eventos", String.valueOf(totalEventos), "#f093fb");
-        VBox card4 = crearCardKPI("👥 Usuarios", String.valueOf(totalUsuarios), "#4facfe");
-
-        panel.getChildren().addAll(card1, card2, card3, card4);
-        return panel;
-    }
-
-    private VBox crearCardKPI(String titulo, String valor, String color) {
-        VBox card = new VBox(10);
-        card.setAlignment(Pos.CENTER);
-        card.setStyle("-fx-background-color: white; -fx-background-radius: 15px; -fx-padding: 20; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);");
-        card.setPrefWidth(200);
-
-        Label lblTitulo = new Label(titulo);
-        lblTitulo.setStyle("-fx-font-size: 13px; -fx-text-fill: #888;");
-
-        Label lblValor = new Label(valor);
-        lblValor.setStyle("-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: " + color + ";");
-
-        card.getChildren().addAll(lblTitulo, lblValor);
-        return card;
-    }
-
-    private VBox crearGraficoVentasPorMes() {
-        VBox panel = new VBox(10);
-        panel.setStyle("-fx-background-color: white; -fx-background-radius: 15px; -fx-padding: 20;");
-        panel.setPrefWidth(450);
-
-        Label titulo = new Label("📈 Ventas por Mes");
-        titulo.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #333;");
-
-        // Datos de ventas por mes
-        Map<String, Double> ventasPorMes = new LinkedHashMap<>();
-
-        // Inicializar últimos 6 meses
-        LocalDateTime ahora = LocalDateTime.now();
-        for (int i = 5; i >= 0; i--) {
-            LocalDateTime mes = ahora.minusMonths(i);
-            String nombreMes = mes.format(DateTimeFormatter.ofPattern("MMM yyyy"));
-            ventasPorMes.put(nombreMes, 0.0);
-        }
-
-        // Acumular ventas
-        for (Compra c : compraRepository.findAll()) {
+        // ========== 2. Gráfico de ventas por evento (Barras) ==========
+        Map<String, Integer> ventasEvento = new HashMap<>();
+        for (Compra c : compraRepo.findAll()) {
             if (c.getEstado() == EstadoCompra.PAGADA) {
-                String mesCompra = c.getFechaCreacion().format(DateTimeFormatter.ofPattern("MMM yyyy"));
-                if (ventasPorMes.containsKey(mesCompra)) {
-                    ventasPorMes.put(mesCompra, ventasPorMes.get(mesCompra) + c.getTotal());
-                }
+                String nombre = c.getEvento().getNombre();
+                ventasEvento.put(nombre, ventasEvento.getOrDefault(nombre, 0) + c.getItems().size());
             }
         }
 
-        // Crear gráfico de barras
         CategoryAxis xAxis = new CategoryAxis();
         NumberAxis yAxis = new NumberAxis();
-        yAxis.setLabel("Ingresos ($)");
-
+        yAxis.setLabel("Tickets vendidos");
         BarChart<String, Number> barChart = new BarChart<>(xAxis, yAxis);
-        barChart.setLegendVisible(false);
-        barChart.setPrefHeight(300);
+        barChart.setTitle("🎟️ Tickets vendidos por evento");
+        barChart.setPrefHeight(350);
+        barChart.setStyle("-fx-background-color: white; -fx-background-radius: 15px; -fx-padding: 15px;");
 
         XYChart.Series<String, Number> series = new XYChart.Series<>();
         series.setName("Ventas");
-
-        for (Map.Entry<String, Double> entry : ventasPorMes.entrySet()) {
-            series.getData().add(new XYChart.Data<>(entry.getKey(), entry.getValue()));
+        for (Map.Entry<String, Integer> e : ventasEvento.entrySet()) {
+            series.getData().add(new XYChart.Data<>(e.getKey(), e.getValue()));
         }
-
         barChart.getData().add(series);
 
-        panel.getChildren().addAll(titulo, barChart);
-        return panel;
-    }
-
-    private VBox crearGraficoPorCategoria() {
-        VBox panel = new VBox(10);
-        panel.setStyle("-fx-background-color: white; -fx-background-radius: 15px; -fx-padding: 20;");
-        panel.setPrefWidth(400);
-
-        Label titulo = new Label("🥧 Ventas por Categoría");
-        titulo.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #333;");
-
-        // Datos por categoría
-        Map<CategoriaEvento, Integer> ventasPorCategoria = new HashMap<>();
-        for (Compra c : compraRepository.findAll()) {
+        // ========== 3. Gráfico de ventas por categoría (Torta) ==========
+        Map<CategoriaEvento, Integer> ventasCategoria = new HashMap<>();
+        for (Compra c : compraRepo.findAll()) {
             if (c.getEstado() == EstadoCompra.PAGADA) {
-                CategoriaEvento categoria = c.getEvento().getCategoria();
-                ventasPorCategoria.put(categoria, ventasPorCategoria.getOrDefault(categoria, 0) + c.getItems().size());
+                CategoriaEvento cat = c.getEvento().getCategoria();
+                ventasCategoria.put(cat, ventasCategoria.getOrDefault(cat, 0) + c.getItems().size());
             }
         }
 
         PieChart pieChart = new PieChart();
-        pieChart.setPrefHeight(300);
-
-        for (Map.Entry<CategoriaEvento, Integer> entry : ventasPorCategoria.entrySet()) {
-            PieChart.Data data = new PieChart.Data(entry.getKey().toString(), entry.getValue());
+        pieChart.setTitle("📊 Ventas por categoría");
+        pieChart.setPrefHeight(350);
+        pieChart.setStyle("-fx-background-color: white; -fx-background-radius: 15px; -fx-padding: 15px;");
+        for (Map.Entry<CategoriaEvento, Integer> e : ventasCategoria.entrySet()) {
+            PieChart.Data data = new PieChart.Data(e.getKey().toString(), e.getValue());
             pieChart.getData().add(data);
         }
 
@@ -203,126 +126,140 @@ public class MetricasView {
             pieChart.getData().add(new PieChart.Data("Sin datos", 1));
         }
 
-        panel.getChildren().addAll(titulo, pieChart);
-        return panel;
-    }
+        // ========== 4. Gráfico de ingresos por mes (Líneas) ==========
+        Map<String, Double> ingresosPorMes = new LinkedHashMap<>();
+        LocalDateTime ahora = LocalDateTime.now();
+        for (int i = 5; i >= 0; i--) {
+            LocalDateTime mes = ahora.minusMonths(i);
+            String nombreMes = mes.format(DateTimeFormatter.ofPattern("MMM yyyy"));
+            ingresosPorMes.put(nombreMes, 0.0);
+        }
 
-    private VBox crearTablaTopEventos() {
-        VBox panel = new VBox(10);
-        panel.setStyle("-fx-background-color: white; -fx-background-radius: 15px; -fx-padding: 20;");
-
-        Label titulo = new Label("🏆 Top Eventos más Vendidos");
-        titulo.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #333;");
-
-        // Datos de ventas por evento
-        Map<String, Integer> ventasPorEvento = new HashMap<>();
-        Map<String, Double> ingresosPorEvento = new HashMap<>();
-
-        for (Compra c : compraRepository.findAll()) {
+        for (Compra c : compraRepo.findAll()) {
             if (c.getEstado() == EstadoCompra.PAGADA) {
-                String nombreEvento = c.getEvento().getNombre();
-                int tickets = c.getItems().size();
-                double total = c.getTotal();
-
-                ventasPorEvento.put(nombreEvento, ventasPorEvento.getOrDefault(nombreEvento, 0) + tickets);
-                ingresosPorEvento.put(nombreEvento, ingresosPorEvento.getOrDefault(nombreEvento, 0.0) + total);
+                String mesCompra = c.getFechaCreacion().format(DateTimeFormatter.ofPattern("MMM yyyy"));
+                if (ingresosPorMes.containsKey(mesCompra)) {
+                    ingresosPorMes.put(mesCompra, ingresosPorMes.get(mesCompra) + c.getTotal());
+                }
             }
         }
 
-        // Ordenar por tickets vendidos
-        List<Map.Entry<String, Integer>> sorted = new ArrayList<>(ventasPorEvento.entrySet());
-        sorted.sort((a, b) -> b.getValue().compareTo(a.getValue()));
+        CategoryAxis xAxisLine = new CategoryAxis();
+        NumberAxis yAxisLine = new NumberAxis();
+        yAxisLine.setLabel("Ingresos ($)");
+        LineChart<String, Number> lineChart = new LineChart<>(xAxisLine, yAxisLine);
+        lineChart.setTitle("📈 Ingresos por mes (últimos 6 meses)");
+        lineChart.setPrefHeight(350);
+        lineChart.setStyle("-fx-background-color: white; -fx-background-radius: 15px; -fx-padding: 15px;");
 
-        // Tabla
-        TableView<Map<String, Object>> tabla = new TableView<>();
-        tabla.setPrefHeight(250);
+        XYChart.Series<String, Number> lineSeries = new XYChart.Series<>();
+        lineSeries.setName("Ingresos");
+        for (Map.Entry<String, Double> entry : ingresosPorMes.entrySet()) {
+            lineSeries.getData().add(new XYChart.Data<>(entry.getKey(), entry.getValue()));
+        }
+        lineChart.getData().add(lineSeries);
+
+        // ========== 5. Tabla de eventos más vendidos ==========
+        VBox topEventosBox = new VBox(10);
+        topEventosBox.setStyle("-fx-background-color: white; -fx-background-radius: 15px; -fx-padding: 15px;");
+        Label lblTopEventos = new Label("🏆 Top 5 Eventos más vendidos");
+        lblTopEventos.setStyle("-fx-font-weight: bold; -fx-font-size: 16px;");
+
+        TableView<Map<String, Object>> tablaTop = new TableView<>();
+        tablaTop.setPrefHeight(200);
 
         TableColumn<Map<String, Object>, String> colEvento = new TableColumn<>("Evento");
-        colEvento.setCellValueFactory(cell -> new javafx.beans.property.SimpleStringProperty((String) cell.getValue().get("evento")));
+        colEvento.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty((String) c.getValue().get("evento")));
         colEvento.setPrefWidth(250);
 
         TableColumn<Map<String, Object>, Integer> colTickets = new TableColumn<>("Tickets Vendidos");
-        colTickets.setCellValueFactory(cell -> new javafx.beans.property.SimpleIntegerProperty((Integer) cell.getValue().get("tickets")).asObject());
+        colTickets.setCellValueFactory(c -> new javafx.beans.property.SimpleIntegerProperty((Integer) c.getValue().get("tickets")).asObject());
         colTickets.setPrefWidth(150);
 
         TableColumn<Map<String, Object>, String> colIngresos = new TableColumn<>("Ingresos");
-        colIngresos.setCellValueFactory(cell -> new javafx.beans.property.SimpleStringProperty((String) cell.getValue().get("ingresos")));
+        colIngresos.setCellValueFactory(c -> new javafx.beans.property.SimpleStringProperty((String) c.getValue().get("ingresos")));
         colIngresos.setPrefWidth(150);
 
-        tabla.getColumns().addAll(colEvento, colTickets, colIngresos);
+        tablaTop.getColumns().addAll(colEvento, colTickets, colIngresos);
 
-        NumberFormat formato = NumberFormat.getInstance(Locale.US);
+        // Ordenar eventos por tickets vendidos
+        List<Map.Entry<String, Integer>> sortedEventos = new ArrayList<>(ventasEvento.entrySet());
+        sortedEventos.sort((a, b) -> b.getValue().compareTo(a.getValue()));
 
-        for (Map.Entry<String, Integer> entry : sorted) {
+        for (int i = 0; i < Math.min(5, sortedEventos.size()); i++) {
+            Map.Entry<String, Integer> entry = sortedEventos.get(i);
             Map<String, Object> row = new HashMap<>();
             row.put("evento", entry.getKey());
             row.put("tickets", entry.getValue());
-            row.put("ingresos", "$" + formato.format(ingresosPorEvento.get(entry.getKey())));
-            tabla.getItems().add(row);
+
+            double ingresos = compraRepo.findAll().stream()
+                    .filter(c -> c.getEstado() == EstadoCompra.PAGADA && c.getEvento().getNombre().equals(entry.getKey()))
+                    .mapToDouble(Compra::getTotal).sum();
+            row.put("ingresos", "$" + String.format("%,.0f", ingresos));
+            tablaTop.getItems().add(row);
         }
 
-        if (tabla.getItems().isEmpty()) {
-            Map<String, Object> row = new HashMap<>();
-            row.put("evento", "No hay datos");
-            row.put("tickets", 0);
-            row.put("ingresos", "$0");
-            tabla.getItems().add(row);
-        }
+        topEventosBox.getChildren().addAll(lblTopEventos, tablaTop);
 
-        panel.getChildren().addAll(titulo, tabla);
-        return panel;
-    }
+        // ========== 6. Estadísticas adicionales ==========
+        VBox statsBox = new VBox(10);
+        statsBox.setStyle("-fx-background-color: white; -fx-background-radius: 15px; -fx-padding: 15px;");
+        Label lblStats = new Label("📋 Estadísticas Adicionales");
+        lblStats.setStyle("-fx-font-weight: bold; -fx-font-size: 16px;");
 
-    private VBox crearEstadisticasAdicionales() {
-        VBox panel = new VBox(10);
-        panel.setStyle("-fx-background-color: white; -fx-background-radius: 15px; -fx-padding: 20;");
+        GridPane statsGrid = new GridPane();
+        statsGrid.setHgap(30);
+        statsGrid.setVgap(12);
 
-        Label titulo = new Label("📋 Estadísticas Adicionales");
-        titulo.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #333;");
-
-        GridPane grid = new GridPane();
-        grid.setHgap(30);
-        grid.setVgap(15);
-
-        List<Compra> compras = compraRepository.findAll();
-        List<Compra> comprasPagadas = compras.stream()
+        double ticketPromedio = compraRepo.findAll().stream()
                 .filter(c -> c.getEstado() == EstadoCompra.PAGADA)
-                .collect(Collectors.toList());
-
-        double ticketPromedio = comprasPagadas.stream()
                 .mapToDouble(c -> c.getTotal() / c.getItems().size())
-                .average()
-                .orElse(0);
+                .average().orElse(0);
 
-        long comprasCanceladas = compras.stream()
-                .filter(c -> c.getEstado() == EstadoCompra.CANCELADA)
-                .count();
+        long comprasCanceladas = compraRepo.findAll().stream()
+                .filter(c -> c.getEstado() == EstadoCompra.CANCELADA).count();
+        long comprasPendientes = compraRepo.findAll().stream()
+                .filter(c -> c.getEstado() == EstadoCompra.CREADA).count();
+        double porcentajeCancelacion = totalCompras > 0 ? (comprasCanceladas * 100.0 / totalCompras) : 0;
 
-        long comprasPendientes = compras.stream()
-                .filter(c -> c.getEstado() == EstadoCompra.CREADA)
-                .count();
+        statsGrid.add(new Label("🎫 Ticket Promedio:"), 0, 0);
+        statsGrid.add(new Label("$" + String.format("%,.0f", ticketPromedio)), 1, 0);
+        ((Label)statsGrid.getChildren().get(1)).setStyle("-fx-text-fill: #e94560; -fx-font-weight: bold;");
 
-        double porcentajeCancelacion = compras.isEmpty() ? 0 : (comprasCanceladas * 100.0 / compras.size());
+        statsGrid.add(new Label("❌ Compras Canceladas:"), 0, 1);
+        statsGrid.add(new Label(String.valueOf(comprasCanceladas)), 1, 1);
 
-        NumberFormat formato = NumberFormat.getInstance(Locale.US);
+        statsGrid.add(new Label("⏳ Compras Pendientes:"), 0, 2);
+        statsGrid.add(new Label(String.valueOf(comprasPendientes)), 1, 2);
 
-        grid.add(new Label("🎫 Ticket Promedio:"), 0, 0);
-        grid.add(new Label("$" + formato.format(ticketPromedio)), 1, 0);
+        statsGrid.add(new Label("📊 Tasa de Cancelación:"), 0, 3);
+        statsGrid.add(new Label(String.format("%.1f%%", porcentajeCancelacion)), 1, 3);
 
-        grid.add(new Label("❌ Compras Canceladas:"), 0, 1);
-        grid.add(new Label(String.valueOf(comprasCanceladas)), 1, 1);
+        statsBox.getChildren().addAll(lblStats, statsGrid);
 
-        grid.add(new Label("⏳ Compras Pendientes:"), 0, 2);
-        grid.add(new Label(String.valueOf(comprasPendientes)), 1, 2);
+        // Organizar en filas
+        HBox chartsRow1 = new HBox(20);
+        chartsRow1.setAlignment(Pos.CENTER);
+        chartsRow1.getChildren().addAll(barChart, pieChart);
 
-        grid.add(new Label("📊 Tasa de Cancelación:"), 0, 3);
-        grid.add(new Label(String.format("%.1f%%", porcentajeCancelacion)), 1, 3);
+        HBox chartsRow2 = new HBox(20);
+        chartsRow2.setAlignment(Pos.CENTER);
+        chartsRow2.getChildren().addAll(lineChart, topEventosBox);
 
-        panel.getChildren().addAll(titulo, grid);
-        return panel;
+        root.getChildren().addAll(kpiGrid, chartsRow1, chartsRow2, statsBox);
     }
 
-    public VBox getRoot() {
-        return root;
+    private VBox crearCard(String titulo, String valor, String color) {
+        VBox card = new VBox(5);
+        card.setAlignment(Pos.CENTER);
+        card.setStyle("-fx-background-color: white; -fx-background-radius: 15px; -fx-padding: 15px; -fx-min-width: 160px; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);");
+        Label lblTitulo = new Label(titulo);
+        lblTitulo.setStyle("-fx-font-size: 12px; -fx-text-fill: #888;");
+        Label lblValor = new Label(valor);
+        lblValor.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: " + color + ";");
+        card.getChildren().addAll(lblTitulo, lblValor);
+        return card;
     }
+
+    public VBox getRoot() { return root; }
 }

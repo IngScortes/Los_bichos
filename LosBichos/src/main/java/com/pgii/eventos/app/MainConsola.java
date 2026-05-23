@@ -19,13 +19,13 @@ import java.time.LocalDateTime;
 public class MainConsola {
     public static void main(String[] args) {
         // Repositorios
-        RecintoRepository recintoRepo = new RecintoRepository();
-        ZonaRepository zonaRepo = new ZonaRepository();
-        AsientoRepository asientoRepo = new AsientoRepository();
-        EventoRepository eventoRepo = new EventoRepository();
-        UsuarioRepository usuarioRepo = new UsuarioRepository();
-        AdministradorRepository adminRepo = new AdministradorRepository();
-        CompraRepository compraRepo = new CompraRepository();
+        RecintoRepository recintoRepo = RecintoRepository.getInstance();
+        ZonaRepository zonaRepo = ZonaRepository.getInstance();
+        AsientoRepository asientoRepo = AsientoRepository.getInstance();
+        EventoRepository eventoRepo = EventoRepository.getInstance();
+        UsuarioRepository usuarioRepo = UsuarioRepository.getInstance();
+        AdministradorRepository adminRepo = AdministradorRepository.getInstance();
+        CompraRepository compraRepo = CompraRepository.getInstance();
 
         // Inicializar datos
         DataInitializer.inicializar(recintoRepo, zonaRepo, asientoRepo, eventoRepo,
@@ -103,17 +103,18 @@ public class MainConsola {
         // ========== DEMOSTRACIÓN DE ADAPTER (REPORTES) ==========
         System.out.println("\n=== Generando reporte con Adapter ===");
         try {
-            ReporteService reporteService = new ReporteService(compraRepo);
+            // Crear repositorios   // los comente porque ya existen
+          //  CompraRepository compraRepo = CompraRepository.getInstance();
+           // EventoRepository eventoRepo = EventoRepository.getInstance();
+            // UsuarioRepository usuarioRepo = UsuarioRepository.getInstance();
+
+            ReporteService reporteService = new ReporteService(compraRepo, eventoRepo, usuarioRepo);
             IReporteExporter csvExporter = new ApachePOICSVAdapter();
-            IReporteExporter pdfExporter = new PDFBoxAdapter();
-            reporteService.generarReporteVentasPorPeriodo(LocalDate.now().minusMonths(1), LocalDate.now(), csvExporter, "ventas.xlsx");
-            System.out.println("Reporte CSV/Excel generado en ventas.xlsx");
-            // También puedes generar PDF:
-            // reporteService.generarReporteVentasPorPeriodo(LocalDate.now().minusMonths(1), LocalDate.now(), pdfExporter, "ventas.pdf");
-            // System.out.println("Reporte PDF generado en ventas.pdf");
+
+            reporteService.exportarReporteVentas(csvExporter, "ventas.xlsx");
+            System.out.println("✅ Reporte Excel generado en ventas.xlsx");
         } catch (Exception e) {
-            System.err.println("Error al generar reporte: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("❌ Error al generar reporte: " + e.getMessage());
         }
         // ========== DEMOSTRACIÓN DE PATRONES DE COMPORTAMIENTO ==========
         System.out.println("\n=== Strategy: Pago con diferentes métodos ===");

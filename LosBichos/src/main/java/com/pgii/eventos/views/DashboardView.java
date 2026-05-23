@@ -1,150 +1,113 @@
 package com.pgii.eventos.views;
 
 import com.pgii.eventos.model.*;
-import com.pgii.eventos.patterns.behavioral.observer.Observador;
 import com.pgii.eventos.repository.*;
 import com.pgii.eventos.service.*;
-import com.pgii.eventos.views.MetricasView;
-import javafx.animation.FadeTransition;
-import javafx.application.Platform;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.Node;
+import javafx.geometry.*;
 import javafx.scene.Scene;
-import javafx.scene.chart.*;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.stage.Stage;
-import javafx.util.Duration;
 
-import java.text.NumberFormat;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-
-public class DashboardView implements Observador {
+public class DashboardView {
     private Stage stage;
     private BorderPane root;
-    private EventoService eventoService;
-    private CompraService compraService;
-    private CompraRepository compraRepository;
-    private UsuarioService usuarioService;
-
-    // Componentes UI
-    private Label lblTotalUsuarios, lblTotalCompras, lblIngresosTotales, lblEventosActivos;
-    private ListView<String> listViewNotificaciones;
-    private PieChart pieChartVentas;
-    private BarChart<String, Number> barChartEventos;
     private TabPane tabPane;
+    private EventosView eventosView;
+    private MisComprasView misComprasView;
+    private MetricasView metricasView;
+    private AdminView adminView;
 
     public DashboardView(Stage stage) {
         this.stage = stage;
-        inicializarServicios();
         crearUI();
-        cargarMetricas();
-        registrarObservador();
-        iniciarAnimaciones();
-    }
-
-    private void inicializarServicios() {
-        EventoRepository eventoRepo = new EventoRepository();
-        CompraRepository compraRepo = new CompraRepository();
-        UsuarioRepository usuarioRepo = new UsuarioRepository();
-        AsientoRepository asientoRepo = new AsientoRepository();
-
-        this.eventoService = new EventoService(eventoRepo);
-        this.compraRepository = compraRepo;
-        this.compraService = new CompraService(compraRepo, asientoRepo);
-        this.usuarioService = new UsuarioService(usuarioRepo);
-    }
-
-    private void registrarObservador() {
-        for (Evento e : eventoService.listarEventosPublicados()) {
-            e.agregarObservador(this);
-        }
-        for (Compra c : compraRepository.findAll()) {
-            c.agregarObservador(this);
-        }
     }
 
     private void crearUI() {
         root = new BorderPane();
-        root.setStyle("-fx-background-color: #f0f2f5;");
-
+        root.setStyle("-fx-background-color: #f1f5f9;");
         root.setTop(crearHeader());
-        root.setLeft(crearMenuLateral());
-        root.setCenter(crearPanelCentral());
+        root.setLeft(crearMenu());
+        root.setCenter(crearTabs());
     }
 
-    private Node crearHeader() {
-        HBox header = new HBox(20);
-        header.setAlignment(Pos.CENTER_LEFT);
-        header.setPadding(new Insets(15, 25, 15, 25));
-        header.setStyle("-fx-background-color: white; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);");
+    private VBox crearHeader() {
+        VBox header = new VBox();
+        header.setStyle("-fx-background-color: white; -fx-padding: 15px 25px; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 10, 0, 0, 2);");
+        HBox headerContent = new HBox();
+        headerContent.setAlignment(Pos.CENTER_LEFT);
 
-        // Logo
-        HBox logoBox = new HBox(10);
-        logoBox.setAlignment(Pos.CENTER);
-        Label logoIcon = new Label("📋");
-        logoIcon.setStyle("-fx-font-size: 28px;");
-        Label logoTitulo = new Label("Plataforma de Gestión");
-        logoTitulo.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #667eea;");
-        logoBox.getChildren().addAll(logoIcon, logoTitulo);
+        Label titulo = new Label("📋 Plataforma de Gestión");
+        titulo.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #1e293b;");
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        // Info usuario
+        Persona usuario = GestorSesion.getInstance().getUsuarioActivo();
         HBox userBox = new HBox(10);
         userBox.setAlignment(Pos.CENTER);
 
-        Circle avatarCircle = new Circle(20);
-        avatarCircle.setFill(Color.web("#667eea"));
-        String nombreUsuario = GestorSesion.getInstance().getUsuarioActivo().getNombreCompleto();
-        String inicial = nombreUsuario.substring(0, 1);
-        Label avatarLabel = new Label(inicial);
-        avatarLabel.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
-        StackPane avatar = new StackPane(avatarCircle, avatarLabel);
+        Circle avatar = new Circle(20);
+        avatar.setFill(Color.web("#6366f1"));
+        Label avatarText = new Label(usuario.getNombreCompleto().substring(0, 1).toUpperCase());
+        avatarText.setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold;");
+        StackPane avatarPane = new StackPane(avatar, avatarText);
 
         VBox userInfo = new VBox(2);
-        Label userName = new Label(nombreUsuario);
-        userName.setStyle("-fx-font-weight: bold; -fx-text-fill: #333;");
-        Label userEmail = new Label(GestorSesion.getInstance().getUsuarioActivo().getEmail());
-        userEmail.setStyle("-fx-font-size: 11px; -fx-text-fill: #888;");
+        Label userName = new Label(usuario.getNombreCompleto());
+        userName.setStyle("-fx-font-weight: 600; -fx-text-fill: #1e293b; -fx-font-size: 13px;");
+        Label userEmail = new Label(usuario.getEmail());
+        userEmail.setStyle("-fx-text-fill: #64748b; -fx-font-size: 11px;");
         userInfo.getChildren().addAll(userName, userEmail);
 
         Button btnLogout = new Button("Salir");
-        btnLogout.setStyle("-fx-background-color: #f5576c; -fx-text-fill: white; -fx-background-radius: 20px; -fx-padding: 8 20;");
-        btnLogout.setOnMouseEntered(e -> btnLogout.setStyle("-fx-background-color: #e8455a; -fx-text-fill: white; -fx-background-radius: 20px; -fx-padding: 8 20;"));
-        btnLogout.setOnMouseExited(e -> btnLogout.setStyle("-fx-background-color: #f5576c; -fx-text-fill: white; -fx-background-radius: 20px; -fx-padding: 8 20;"));
+        btnLogout.setStyle("-fx-background-color: #ef4444; -fx-text-fill: white; -fx-background-radius: 25px; -fx-padding: 6 18; -fx-cursor: hand; -fx-font-weight: 600;");
         btnLogout.setOnAction(e -> volverLogin());
 
-        userBox.getChildren().addAll(avatar, userInfo, btnLogout);
-        header.getChildren().addAll(logoBox, spacer, userBox);
-
+        userBox.getChildren().addAll(avatarPane, userInfo, btnLogout);
+        headerContent.getChildren().addAll(titulo, spacer, userBox);
+        header.getChildren().add(headerContent);
         return header;
     }
 
-    private Node crearMenuLateral() {
-        VBox menu = new VBox(5);
-        menu.setPadding(new Insets(20, 15, 20, 15));
-        menu.setStyle("-fx-background-color: white; -fx-min-width: 220;");
+    private VBox crearMenu() {
+        VBox menu = new VBox(8);
+        menu.setStyle("-fx-background-color: linear-gradient(to bottom, #1e1b4b, #312e81); -fx-padding: 25px 15px; -fx-min-width: 240px;");
+
+        Persona usuario = GestorSesion.getInstance().getUsuarioActivo();
+        Circle avatar = new Circle(35);
+        avatar.setFill(Color.web("#8b5cf6"));
+        Label avatarText = new Label(usuario.getNombreCompleto().substring(0, 1).toUpperCase());
+        avatarText.setStyle("-fx-text-fill: white; -fx-font-size: 28px; -fx-font-weight: bold;");
+        StackPane avatarPane = new StackPane(avatar, avatarText);
+        avatarPane.setAlignment(Pos.CENTER);
+
+        Label nombre = new Label(usuario.getNombreCompleto());
+        nombre.setStyle("-fx-text-fill: white; -fx-font-size: 15px; -fx-font-weight: bold;");
+        Label email = new Label(usuario.getEmail());
+        email.setStyle("-fx-text-fill: #a5b4fc; -fx-font-size: 11px;");
+
+        menu.getChildren().addAll(avatarPane, nombre, email, new Separator());
 
         Button btnDashboard = crearBotonMenu("📊 Dashboard", true);
-        btnDashboard.setOnAction(e -> seleccionarTab(0));
-
         Button btnEventos = crearBotonMenu("🎪 Eventos", false);
-        btnEventos.setOnAction(e -> seleccionarTab(1));
+        Button btnCompras = crearBotonMenu("🎟️ Mis Compras", false);
 
-        Button btnMisCompras = crearBotonMenu("🎟️ Mis Compras", false);
-        btnMisCompras.setOnAction(e -> seleccionarTab(2));
+        btnDashboard.setOnAction(e -> tabPane.getSelectionModel().select(0));
+        btnEventos.setOnAction(e -> tabPane.getSelectionModel().select(1));
+        btnCompras.setOnAction(e -> tabPane.getSelectionModel().select(2));
 
-        Button btnMetricas = crearBotonMenu("📈 Métricas", false);
-        btnMetricas.setOnAction(e -> seleccionarTab(3));
+        menu.getChildren().addAll(btnDashboard, btnEventos, btnCompras);
 
-        menu.getChildren().addAll(btnDashboard, btnEventos, btnMisCompras, btnMetricas);
+        // ========== MÉTRICAS SOLO PARA ADMIN ==========
+        if (GestorSesion.getInstance().isAdmin()) {
+            Button btnMetricas = crearBotonMenu("📈 Métricas", false);
+            btnMetricas.setOnAction(e -> tabPane.getSelectionModel().select(3));
+            menu.getChildren().add(btnMetricas);
+        }
+        // ============================================
 
         if (GestorSesion.getInstance().isAdmin()) {
             Button btnAdmin = crearBotonMenu("👑 Administrador", false);
@@ -152,270 +115,188 @@ public class DashboardView implements Observador {
             menu.getChildren().add(btnAdmin);
         }
 
+        menu.getChildren().add(new Separator());
+        Button btnLogout = crearBotonMenu("🚪 Cerrar Sesión", false);
+        btnLogout.setOnAction(e -> volverLogin());
+        menu.getChildren().add(btnLogout);
+
         return menu;
     }
 
     private Button crearBotonMenu(String texto, boolean activo) {
         Button btn = new Button(texto);
-        btn.setAlignment(Pos.CENTER_LEFT);
         btn.setMaxWidth(Double.MAX_VALUE);
+        btn.setAlignment(Pos.CENTER_LEFT);
         btn.setStyle(
-                "-fx-background-color: " + (activo ? "linear-gradient(to right, #667eea, #764ba2);" : "transparent;") +
-                        "-fx-text-fill: " + (activo ? "white;" : "#555;") +
-                        "-fx-padding: 12 15;" +
-                        "-fx-background-radius: 10px;" +
-                        "-fx-font-size: 13px;" +
-                        "-fx-cursor: hand;"
+                "-fx-background-color: " + (activo ? "#8b5cf6" : "transparent") + ";" +
+                        "-fx-text-fill: white;" +
+                        "-fx-padding: 10px 15px;" +
+                        "-fx-background-radius: 12px;" +
+                        "-fx-cursor: hand;" +
+                        "-fx-font-weight: 600;" +
+                        "-fx-font-size: 13px;"
         );
-
-        btn.setOnMouseEntered(e -> {
-            if (!activo) {
-                btn.setStyle("-fx-background-color: #f0f0f0; -fx-text-fill: #667eea; -fx-padding: 12 15; -fx-background-radius: 10px; -fx-font-size: 13px; -fx-cursor: hand;");
-            }
-        });
-        btn.setOnMouseExited(e -> {
-            if (!activo) {
-                btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #555; -fx-padding: 12 15; -fx-background-radius: 10px; -fx-font-size: 13px; -fx-cursor: hand;");
-            }
-        });
-
+        if (!activo) {
+            btn.setOnMouseEntered(e -> btn.setStyle("-fx-background-color: #4c1d95; -fx-text-fill: white; -fx-padding: 10px 15px; -fx-background-radius: 12px; -fx-cursor: hand; -fx-font-weight: 600;"));
+            btn.setOnMouseExited(e -> btn.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-padding: 10px 15px; -fx-background-radius: 12px; -fx-cursor: hand; -fx-font-weight: 600;"));
+        }
         return btn;
     }
 
-    private Node crearPanelCentral() {
+    private TabPane crearTabs() {
         tabPane = new TabPane();
-        tabPane.setStyle("-fx-background-color: transparent;");
+        tabPane.setStyle("-fx-background-color: transparent; -fx-padding: 20px;");
 
-        Tab tabDashboard = new Tab("Dashboard");
+        Tab tabDashboard = new Tab("📊 Dashboard");
         tabDashboard.setContent(crearDashboardContent());
         tabDashboard.setClosable(false);
 
-        Tab tabEventos = new Tab("Eventos");
-        tabEventos.setContent(crearEventosContent());
+        Tab tabEventos = new Tab("🎪 Eventos");
+        eventosView = new EventosView(stage);
+        tabEventos.setContent(eventosView.getRoot());
         tabEventos.setClosable(false);
 
-        Tab tabCompras = new Tab("Mis Compras");
-        tabCompras.setContent(crearComprasContent());
+        Tab tabCompras = new Tab("🎟️ Mis Compras");
+        misComprasView = new MisComprasView(stage);
+        tabCompras.setContent(misComprasView.getRoot());
         tabCompras.setClosable(false);
 
-        Tab tabMetricas = new Tab("Métricas");
-        tabMetricas.setContent(crearMetricasContent());
-        tabMetricas.setClosable(false);
+        tabPane.getTabs().addAll(tabDashboard, tabEventos, tabCompras);
 
-        tabPane.getTabs().addAll(tabDashboard, tabEventos, tabCompras, tabMetricas);
+        // ========== MÉTRICAS SOLO PARA ADMIN ==========
+        if (GestorSesion.getInstance().isAdmin()) {
+            Tab tabMetricas = new Tab("📈 Métricas");
+            metricasView = new MetricasView(stage);
+            tabMetricas.setContent(metricasView.getRoot());
+            tabMetricas.setClosable(false);
+            tabPane.getTabs().add(tabMetricas);
+
+            Tab tabAdminStats = new Tab("📊 Estadísticas Admin");
+            tabAdminStats.setContent(crearDashboardAdminContent());
+            tabAdminStats.setClosable(false);
+            tabPane.getTabs().add(tabAdminStats);
+        }
+        // ============================================
 
         return tabPane;
     }
 
-    private void seleccionarTab(int index) {
-        if (tabPane != null && index < tabPane.getTabs().size()) {
-            tabPane.getSelectionModel().select(index);
-        }
-    }
-
-    private ScrollPane crearDashboardContent() {
-        ScrollPane scrollPane = new ScrollPane();
-        scrollPane.setFitToWidth(true);
-        scrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
-
+    private VBox crearDashboardContent() {
         VBox content = new VBox(20);
         content.setPadding(new Insets(20));
 
-        // Tarjetas de métricas
-        GridPane cardsGrid = new GridPane();
-        cardsGrid.setHgap(20);
-        cardsGrid.setVgap(20);
+        GridPane grid = new GridPane();
+        grid.setHgap(20);
+        grid.setVgap(20);
 
-        lblTotalUsuarios = crearTarjetaMetrica("👥 Usuarios", "0", "#667eea");
-        lblTotalCompras = crearTarjetaMetrica("🛒 Compras", "0", "#f093fb");
-        lblIngresosTotales = crearTarjetaMetrica("💰 Ingresos", "$0", "#4facfe");
-        lblEventosActivos = crearTarjetaMetrica("🎪 Eventos", "0", "#43e97b");
+        EventoRepository eventoRepo = EventoRepository.getInstance();
+        CompraRepository compraRepo = CompraRepository.getInstance();
+        UsuarioRepository usuarioRepo = UsuarioRepository.getInstance();
 
-        cardsGrid.add(lblTotalUsuarios, 0, 0);
-        cardsGrid.add(lblTotalCompras, 1, 0);
-        cardsGrid.add(lblIngresosTotales, 2, 0);
-        cardsGrid.add(lblEventosActivos, 3, 0);
+        long eventos = eventoRepo.findAll().stream().filter(e -> e.getEstado() == EstadoEvento.PUBLICADO).count();
+        long compras = compraRepo.findAll().size();
+        double ingresos = compraRepo.findAll().stream().filter(c -> c.getEstado() == EstadoCompra.PAGADA).mapToDouble(Compra::getTotal).sum();
+        long usuarios = usuarioRepo.findAll().size();
 
-        // Gráfico de barras
-        VBox chartBox = new VBox(10);
-        chartBox.setStyle("-fx-background-color: white; -fx-background-radius: 15px; -fx-padding: 20;");
-        Label chartTitle = new Label("Ventas por Evento");
-        chartTitle.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #333;");
+        grid.add(crearCard("🎪 Eventos", String.valueOf(eventos), "#6366f1"), 0, 0);
+        grid.add(crearCard("🛒 Compras", String.valueOf(compras), "#8b5cf6"), 1, 0);
+        grid.add(crearCard("💰 Ingresos", "$" + String.format("%,.0f", ingresos), "#10b981"), 2, 0);
+        grid.add(crearCard("👥 Usuarios", String.valueOf(usuarios), "#f59e0b"), 3, 0);
 
-        CategoryAxis xAxis = new CategoryAxis();
-        NumberAxis yAxis = new NumberAxis();
-        barChartEventos = new BarChart<>(xAxis, yAxis);
-        barChartEventos.setLegendVisible(false);
-        barChartEventos.setPrefHeight(300);
-        barChartEventos.setStyle("-fx-background-color: transparent;");
-
-        chartBox.getChildren().addAll(chartTitle, barChartEventos);
-
-        // Panel de notificaciones
-        VBox notifBox = new VBox(10);
-        notifBox.setStyle("-fx-background-color: white; -fx-background-radius: 15px; -fx-padding: 20;");
-        Label notifTitle = new Label("📢 Notificaciones en Tiempo Real");
-        notifTitle.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #333;");
-
-        listViewNotificaciones = new ListView<>();
-        listViewNotificaciones.setPrefHeight(150);
-        listViewNotificaciones.setStyle("-fx-background-radius: 10px;");
-
-        notifBox.getChildren().addAll(notifTitle, listViewNotificaciones);
-
-        content.getChildren().addAll(cardsGrid, chartBox, notifBox);
-        scrollPane.setContent(content);
-
-        return scrollPane;
+        content.getChildren().add(grid);
+        return content;
     }
 
-    private Label crearTarjetaMetrica(String titulo, String valor, String color) {
-        VBox card = new VBox(10);
-        card.setStyle("-fx-background-color: white; -fx-background-radius: 15px; -fx-padding: 20; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);");
-        card.setPrefWidth(200);
-
+    private VBox crearCard(String titulo, String valor, String color) {
+        VBox card = new VBox(5);
+        card.setAlignment(Pos.CENTER);
+        card.setStyle("-fx-background-color: white; -fx-background-radius: 20px; -fx-padding: 20px; -fx-min-width: 180px; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 10, 0, 0, 2);");
         Label lblTitulo = new Label(titulo);
-        lblTitulo.setStyle("-fx-font-size: 13px; -fx-text-fill: #888;");
-
+        lblTitulo.setStyle("-fx-font-size: 13px; -fx-text-fill: #64748b; -fx-font-weight: 500;");
         Label lblValor = new Label(valor);
         lblValor.setStyle("-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: " + color + ";");
-
         card.getChildren().addAll(lblTitulo, lblValor);
-
-        return lblValor;
+        return card;
     }
 
-    private VBox crearEventosContent() {
-        EventosView eventosView = new EventosView(stage);
-        return eventosView.getRoot();
-    }
+    private VBox crearDashboardAdminContent() {
+        VBox content = new VBox(20);
+        content.setPadding(new Insets(20));
 
-    private Node crearComprasContent() {
-        MisComprasView misComprasView = new MisComprasView(stage);
-        return misComprasView.getRoot();
+        EventoRepository eventoRepo = EventoRepository.getInstance();
+        CompraRepository compraRepo = CompraRepository.getInstance();
+        UsuarioRepository usuarioRepo = UsuarioRepository.getInstance();
 
-    }
+        long totalEventos = eventoRepo.findAll().size();
+        long totalEventosPublicados = eventoRepo.findAll().stream().filter(e -> e.getEstado() == EstadoEvento.PUBLICADO).count();
+        long totalCompras = compraRepo.findAll().size();
+        long totalComprasPagadas = compraRepo.findAll().stream().filter(c -> c.getEstado() == EstadoCompra.PAGADA).count();
+        double ingresosTotales = compraRepo.findAll().stream().filter(c -> c.getEstado() == EstadoCompra.PAGADA).mapToDouble(Compra::getTotal).sum();
+        long totalUsuarios = usuarioRepo.findAll().size();
+        long ticketsVendidos = compraRepo.findAll().stream().filter(c -> c.getEstado() == EstadoCompra.PAGADA).mapToInt(c -> c.getItems().size()).sum();
 
-    private Node crearMetricasContent() {
-        try {
-            MetricasView metricasView = new MetricasView(stage);
-            return metricasView.getRoot();
-        } catch (Exception e) {
-            e.printStackTrace();
-            VBox errorBox = new VBox();
-            errorBox.getChildren().add(new Label("Error al cargar Métricas: " + e.getMessage()));
-            return errorBox;
-        }
-    }
-
-    private void cargarMetricas() {
-        NumberFormat formato = NumberFormat.getInstance(Locale.US);
-
-        long totalUsuarios = usuarioService.listarTodos().size();
-        lblTotalUsuarios.setText(String.valueOf(totalUsuarios));
-
-        long totalCompras = compraRepository.findAll().size();
-        lblTotalCompras.setText(String.valueOf(totalCompras));
-
-        double ingresos = compraRepository.findAll().stream()
-                .filter(c -> c.getEstado() == EstadoCompra.PAGADA)
-                .mapToDouble(Compra::getTotal)
-                .sum();
-        lblIngresosTotales.setText("$" + formato.format(ingresos));
-
-        long eventosActivos = eventoService.listarEventosPublicados().size();
-        lblEventosActivos.setText(String.valueOf(eventosActivos));
-
-        cargarGraficoBarras();
-        cargarGraficoTorta();
-    }
-
-    private void cargarGraficoBarras() {
-        XYChart.Series<String, Number> series = new XYChart.Series<>();
-        series.setName("Entradas Vendidas");
-
-        Map<String, Integer> ventasPorEvento = new HashMap<>();
-        for (Compra c : compraRepository.findAll()) {
-            if (c.getEstado() == EstadoCompra.PAGADA) {
-                String nombreEvento = c.getEvento().getNombre();
-                ventasPorEvento.put(nombreEvento, ventasPorEvento.getOrDefault(nombreEvento, 0) + c.getItems().size());
+        String eventoMasVendido = "";
+        int maxVentas = 0;
+        for (Evento e : eventoRepo.findAll()) {
+            int ventas = compraRepo.findAll().stream()
+                    .filter(c -> c.getEvento().getIdEvento().equals(e.getIdEvento()))
+                    .filter(c -> c.getEstado() == EstadoCompra.PAGADA)
+                    .mapToInt(c -> c.getItems().size()).sum();
+            if (ventas > maxVentas) {
+                maxVentas = ventas;
+                eventoMasVendido = e.getNombre();
             }
         }
 
-        barChartEventos.getData().clear();
-        for (Map.Entry<String, Integer> entry : ventasPorEvento.entrySet()) {
-            series.getData().add(new XYChart.Data<>(entry.getKey(), entry.getValue()));
-        }
-        barChartEventos.getData().add(series);
+        GridPane grid = new GridPane();
+        grid.setHgap(20);
+        grid.setVgap(20);
+
+        grid.add(crearCardAdmin("🎪 Total Eventos", String.valueOf(totalEventos), "#6366f1"), 0, 0);
+        grid.add(crearCardAdmin("📢 Publicados", String.valueOf(totalEventosPublicados), "#10b981"), 1, 0);
+        grid.add(crearCardAdmin("🛒 Compras", String.valueOf(totalCompras), "#8b5cf6"), 2, 0);
+        grid.add(crearCardAdmin("✅ Pagadas", String.valueOf(totalComprasPagadas), "#3b82f6"), 3, 0);
+        grid.add(crearCardAdmin("💰 Ingresos", "$" + String.format("%,.0f", ingresosTotales), "#ef4444"), 0, 1);
+        grid.add(crearCardAdmin("👥 Usuarios", String.valueOf(totalUsuarios), "#f59e0b"), 1, 1);
+        grid.add(crearCardAdmin("🎫 Tickets", String.valueOf(ticketsVendidos), "#06b6d4"), 2, 1);
+        grid.add(crearCardAdmin("🏆 Más Vendido", eventoMasVendido + " (" + maxVentas + ")", "#8b5cf6"), 3, 1);
+
+        content.getChildren().add(grid);
+        return content;
     }
 
-    private void cargarGraficoTorta() {
-            if (pieChartVentas == null) return;  
-        Map<CategoriaEvento, Integer> ventasPorCategoria = new HashMap<>();
-        for (Compra c : compraRepository.findAll()) {
-            if (c.getEstado() == EstadoCompra.PAGADA) {
-                CategoriaEvento categoria = c.getEvento().getCategoria();
-                ventasPorCategoria.put(categoria, ventasPorCategoria.getOrDefault(categoria, 0) + c.getItems().size());
-            }
-        }
-
-        pieChartVentas.getData().clear();
-        for (Map.Entry<CategoriaEvento, Integer> entry : ventasPorCategoria.entrySet()) {
-            pieChartVentas.getData().add(new PieChart.Data(entry.getKey().toString(), entry.getValue()));
-        }
-    }
-
-    private void iniciarAnimaciones() {
-        FadeTransition fadeIn = new FadeTransition(Duration.seconds(0.5), root);
-        fadeIn.setFromValue(0);
-        fadeIn.setToValue(1);
-        fadeIn.play();
-    }
-
-    @Override
-    public void notificar(String evento, String mensaje, Object fuente) {
-        Platform.runLater(() -> {
-            String notificacion = "[" + evento + "] " + mensaje;
-            listViewNotificaciones.getItems().add(0, notificacion);
-            if (listViewNotificaciones.getItems().size() > 50) {
-                listViewNotificaciones.getItems().remove(50);
-            }
-
-            if (evento.equals("ESTADO_COMPRA") || evento.equals("ESTADO_EVENTO")) {
-                cargarMetricas();
-            }
-        });
+    private VBox crearCardAdmin(String titulo, String valor, String color) {
+        VBox card = new VBox(5);
+        card.setAlignment(Pos.CENTER);
+        card.setStyle("-fx-background-color: white; -fx-background-radius: 20px; -fx-padding: 15px; -fx-min-width: 160px; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 8, 0, 0, 2);");
+        Label lblTitulo = new Label(titulo);
+        lblTitulo.setStyle("-fx-font-size: 12px; -fx-text-fill: #64748b; -fx-font-weight: 500;");
+        Label lblValor = new Label(valor);
+        lblValor.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: " + color + ";");
+        card.getChildren().addAll(lblTitulo, lblValor);
+        return card;
     }
 
     private void mostrarAdminView() {
-        try {
-            AdminView adminView = new AdminView(stage);
-            Scene scene = new Scene(adminView.getRoot(), 1300, 800);
-            stage.setScene(scene);
-            stage.setTitle("Plataforma de Gestión - Administrador");
-        } catch (Exception e) {
-            e.printStackTrace();
-            mostrarAlerta("Error", "No se pudo cargar AdminView: " + e.getMessage());
+        if (adminView == null) {
+            adminView = new AdminView(stage);
         }
+        Scene scene = new Scene(adminView.getRoot(), 1300, 800);
+        try {
+            scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
+        } catch (Exception ex) {}
+        stage.setScene(scene);
     }
 
     private void volverLogin() {
         GestorSesion.getInstance().cerrarSesion();
         LoginView loginView = new LoginView(stage);
         Scene scene = new Scene(loginView.getRoot(), 900, 600);
+        try {
+            scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
+        } catch (Exception ex) {}
         stage.setScene(scene);
-        stage.setTitle("Plataforma de Gestión - Login");
     }
 
-    private void mostrarAlerta(String titulo, String mensaje) {
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle(titulo);
-        alert.setHeaderText(null);
-        alert.setContentText(mensaje);
-        alert.showAndWait();
-    }
-
-    public BorderPane getRoot() {
-        return root;
-    }
+    public BorderPane getRoot() { return root; }
 }

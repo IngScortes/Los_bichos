@@ -12,14 +12,16 @@ public class Main extends Application {
         LoginView loginView = new LoginView(primaryStage);
         Scene scene = new Scene(loginView.getRoot(), 900, 600);
 
-        // Opcional: cargar CSS (comenta si no tienes el archivo)
+        // ========== AGREGAR CSS AQUÍ ==========
         try {
             scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
+            System.out.println("✅ CSS cargado correctamente");
         } catch (Exception e) {
-            System.out.println("CSS no encontrado, continuando sin estilos");
+            System.out.println("❌ CSS no encontrado: " + e.getMessage());
         }
+        // ======================================
 
-        primaryStage.setTitle("Los Bichos - Plataforma de Eventos");
+        primaryStage.setTitle("Plataforma de Gestión");
         primaryStage.setScene(scene);
         primaryStage.show();
     }

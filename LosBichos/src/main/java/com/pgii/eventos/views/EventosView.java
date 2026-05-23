@@ -3,315 +3,387 @@ package com.pgii.eventos.views;
 import com.pgii.eventos.model.*;
 import com.pgii.eventos.repository.*;
 import com.pgii.eventos.service.*;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
+import javafx.geometry.*;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class EventosView {
     private Stage stage;
     private VBox root;
-    private EventoService eventoService;
+    private EventoRepository eventoRepo;
+    private CompraRepository compraRepo;
+    private AsientoRepository asientoRepo;
     private CompraService compraService;
-    private Persona usuarioActivo;
+    private Persona usuario;
+    private VBox container;
 
-    // Filtros
     private ComboBox<String> cbCiudad;
     private ComboBox<CategoriaEvento> cbCategoria;
-    private DatePicker dpFecha;
-    private Button btnBuscar;
-    private VBox eventosContainer;
+    private TextField txtBuscarNombre;
+    private ComboBox<String> cbOrdenar;
+    private Slider sliderPrecio;
+    private Label lblRangoPrecio;
+    private DatePicker dpFechaEspecifica;
 
     public EventosView(Stage stage) {
         this.stage = stage;
-        this.usuarioActivo = GestorSesion.getInstance().getUsuarioActivo();
-        inicializarServicios();
+        this.usuario = GestorSesion.getInstance().getUsuarioActivo();
+        this.eventoRepo = EventoRepository.getInstance();
+        this.compraRepo = CompraRepository.getInstance();
+        this.asientoRepo = AsientoRepository.getInstance();
+        this.compraService = new CompraService(compraRepo, asientoRepo);
         crearUI();
         cargarEventos();
-    }
-
-    private void inicializarServicios() {
-        EventoRepository eventoRepo = new EventoRepository();
-        CompraRepository compraRepo = new CompraRepository();
-        AsientoRepository asientoRepo = new AsientoRepository();
-
-        this.eventoService = new EventoService(eventoRepo);
-        this.compraService = new CompraService(compraRepo, asientoRepo);
     }
 
     private void crearUI() {
         root = new VBox(15);
         root.setPadding(new Insets(20));
-        root.setStyle("-fx-background-color: #f0f2f5;");
+        root.setStyle("-fx-background-color: #f1f5f9;");
 
-        // Título
         Label titulo = new Label("🎪 Eventos Disponibles");
-        titulo.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #333;");
+        titulo.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #1e293b;");
 
-        // Panel de filtros
-        VBox filtrosBox = crearPanelFiltros();
+        // Panel de filtros - MÁS COMPACTO
+        VBox filtrosBox = new VBox(10);
+        filtrosBox.setStyle("-fx-background-color: white; -fx-background-radius: 20px; -fx-padding: 15px; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 10, 0, 0, 2);");
 
-        // Contenedor de eventos (scroll)
-        eventosContainer = new VBox(15);
-        eventosContainer.setPadding(new Insets(10));
+        Label lblFiltros = new Label("🔍 Filtros");
+        lblFiltros.setStyle("-fx-font-weight: bold; -fx-font-size: 14px; -fx-text-fill: #1e293b;");
 
-        ScrollPane scrollEventos = new ScrollPane(eventosContainer);
-        scrollEventos.setFitToWidth(true);
-        scrollEventos.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
-        scrollEventos.setPrefHeight(500);
+        // FILA 1: Búsqueda y Ciudad
+        HBox fila1 = new HBox(15);
+        fila1.setAlignment(Pos.CENTER_LEFT);
 
-        root.getChildren().addAll(titulo, filtrosBox, scrollEventos);
-    }
+        Label lblBuscar = new Label("🔎");
+        txtBuscarNombre = new TextField();
+        txtBuscarNombre.setPromptText("Buscar evento...");
+        txtBuscarNombre.setPrefWidth(200);
+        txtBuscarNombre.textProperty().addListener((obs, oldVal, newVal) -> cargarEventos());
 
-    private VBox crearPanelFiltros() {
-        VBox panel = new VBox(10);
-        panel.setStyle("-fx-background-color: white; -fx-background-radius: 10px; -fx-padding: 15;");
-
-        Label lblFiltros = new Label("🔍 Filtros de búsqueda");
-        lblFiltros.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
-
-        HBox filtrosRow = new HBox(15);
-        filtrosRow.setAlignment(Pos.CENTER_LEFT);
-
-        // Ciudad
-        VBox ciudadBox = new VBox(5);
-        Label lblCiudad = new Label("Ciudad:");
+        Label lblCiudad = new Label("📍");
         cbCiudad = new ComboBox<>();
         cbCiudad.getItems().addAll("Todas", "Armenia", "Pereira", "Manizales", "Cali", "Medellín", "Bogotá");
         cbCiudad.setValue("Todas");
-        ciudadBox.getChildren().addAll(lblCiudad, cbCiudad);
+        cbCiudad.setOnAction(e -> cargarEventos());
+        cbCiudad.setPrefWidth(120);
 
-        // Categoría
-        VBox categoriaBox = new VBox(5);
-        Label lblCategoria = new Label("Categoría:");
+        fila1.getChildren().addAll(lblBuscar, txtBuscarNombre, lblCiudad, cbCiudad);
+
+        // FILA 2: Categoría y Fecha
+        HBox fila2 = new HBox(15);
+        fila2.setAlignment(Pos.CENTER_LEFT);
+
+        Label lblCategoria = new Label("📂");
         cbCategoria = new ComboBox<>();
         cbCategoria.getItems().addAll(CategoriaEvento.values());
-        cbCategoria.setPromptText("Todas");
-        categoriaBox.getChildren().addAll(lblCategoria, cbCategoria);
+        cbCategoria.setPromptText("Categoría");
+        cbCategoria.setOnAction(e -> cargarEventos());
+        cbCategoria.setPrefWidth(130);
 
-        // Fecha
-        VBox fechaBox = new VBox(5);
-        Label lblFecha = new Label("Desde fecha:");
-        dpFecha = new DatePicker();
-        fechaBox.getChildren().addAll(lblFecha, dpFecha);
+        Label lblFecha = new Label("📅");
+        dpFechaEspecifica = new DatePicker();
+        dpFechaEspecifica.setPromptText("Fecha");
+        dpFechaEspecifica.setPrefWidth(120);
+        dpFechaEspecifica.setOnAction(e -> cargarEventos());
 
-        // Botón buscar
-        btnBuscar = new Button("Buscar");
-        btnBuscar.setStyle("-fx-background-color: #667eea; -fx-text-fill: white; -fx-background-radius: 20px; -fx-padding: 8 20;");
-        btnBuscar.setOnAction(e -> cargarEventos());
+        fila2.getChildren().addAll(lblCategoria, cbCategoria, lblFecha, dpFechaEspecifica);
 
-        // Botón limpiar
-        Button btnLimpiar = new Button("Limpiar");
-        btnLimpiar.setStyle("-fx-background-color: #f0f0f0; -fx-text-fill: #666; -fx-background-radius: 20px; -fx-padding: 8 20;");
-        btnLimpiar.setOnAction(e -> {
-            cbCiudad.setValue("Todas");
-            cbCategoria.setValue(null);
-            dpFecha.setValue(null);
+        // FILA 3: Ordenar y Precio
+        HBox fila3 = new HBox(15);
+        fila3.setAlignment(Pos.CENTER_LEFT);
+
+        Label lblOrdenar = new Label("📊");
+        cbOrdenar = new ComboBox<>();
+        cbOrdenar.getItems().addAll("Fecha (más cercano)", "Fecha (más lejano)", "Precio (menor)", "Precio (mayor)");
+        cbOrdenar.setValue("Fecha (más cercano)");
+        cbOrdenar.setOnAction(e -> cargarEventos());
+        cbOrdenar.setPrefWidth(160);
+
+        Label lblPrecio = new Label("💰");
+        sliderPrecio = new Slider(0, 500000, 500000);
+        sliderPrecio.setPrefWidth(180);
+        lblRangoPrecio = new Label("Hasta $500k");
+        lblRangoPrecio.setStyle("-fx-text-fill: #64748b; -fx-font-size: 11px;");
+        sliderPrecio.valueProperty().addListener((obs, oldVal, newVal) -> {
+            lblRangoPrecio.setText("Hasta $" + String.format("%,.0f", newVal.doubleValue()) + "k");
             cargarEventos();
         });
 
-        HBox buttonsBox = new HBox(10, btnBuscar, btnLimpiar);
-        buttonsBox.setAlignment(Pos.CENTER_LEFT);
+        Button btnLimpiar = new Button("🗑️ Limpiar");
+        btnLimpiar.setStyle("-fx-background-color: #ef4444; -fx-text-fill: white; -fx-background-radius: 20px; -fx-padding: 5 15; -fx-cursor: hand; -fx-font-size: 11px; -fx-font-weight: 600;");
+        btnLimpiar.setOnAction(e -> {
+            txtBuscarNombre.clear();
+            cbCiudad.setValue("Todas");
+            cbCategoria.setValue(null);
+            dpFechaEspecifica.setValue(null);
+            cbOrdenar.setValue("Fecha (más cercano)");
+            sliderPrecio.setValue(500000);
+            cargarEventos();
+        });
 
-        filtrosRow.getChildren().addAll(ciudadBox, categoriaBox, fechaBox, buttonsBox);
-        panel.getChildren().addAll(lblFiltros, filtrosRow);
+        HBox precioBox = new HBox(5);
+        precioBox.setAlignment(Pos.CENTER_LEFT);
+        precioBox.getChildren().addAll(lblPrecio, sliderPrecio, lblRangoPrecio);
 
-        return panel;
+        fila3.getChildren().addAll(lblOrdenar, cbOrdenar, precioBox, btnLimpiar);
+
+        filtrosBox.getChildren().addAll(lblFiltros, fila1, fila2, fila3);
+
+        // Contenedor de eventos - MÁS ALTO
+        container = new VBox(15);
+        ScrollPane scroll = new ScrollPane(container);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background-color: transparent;");
+        scroll.setPrefHeight(600);  // Aumentado de 550 a 600
+
+        root.getChildren().addAll(titulo, filtrosBox, scroll);
     }
 
     private void cargarEventos() {
-        eventosContainer.getChildren().clear();
+        container.getChildren().clear();
 
-        // Obtener eventos publicados
-        List<Evento> eventos = eventoService.listarEventosPublicados();
+        List<Evento> eventos = eventoRepo.findAll().stream()
+                .filter(e -> e.getEstado() == EstadoEvento.PUBLICADO)
+                .collect(Collectors.toList());
 
-        System.out.println("=== EVENTOS ENCONTRADOS ===");
-        System.out.println("Total eventos publicados: " + eventos.size());
-
-        // Depuración: mostrar eventos encontrados
-        for (Evento e : eventos) {
-            System.out.println("- " + e.getNombre() + " | Ciudad: " + e.getCiudad() + " | Estado: " + e.getEstado());
+        if (txtBuscarNombre != null && !txtBuscarNombre.getText().isEmpty()) {
+            String busqueda = txtBuscarNombre.getText().toLowerCase();
+            eventos = eventos.stream().filter(e -> e.getNombre().toLowerCase().contains(busqueda)).collect(Collectors.toList());
         }
-
-        // Aplicar filtros
-        String ciudad = cbCiudad.getValue();
-        if (ciudad != null && !ciudad.equals("Todas")) {
-            eventos = eventos.stream()
-                    .filter(e -> e.getCiudad() != null && e.getCiudad().equalsIgnoreCase(ciudad))
-                    .collect(Collectors.toList());
+        if (cbCiudad.getValue() != null && !cbCiudad.getValue().equals("Todas")) {
+            eventos = eventos.stream().filter(e -> e.getCiudad().equalsIgnoreCase(cbCiudad.getValue())).collect(Collectors.toList());
         }
-
         if (cbCategoria.getValue() != null) {
-            CategoriaEvento categoria = cbCategoria.getValue();
-            eventos = eventos.stream()
-                    .filter(e -> e.getCategoria() == categoria)
-                    .collect(Collectors.toList());
+            eventos = eventos.stream().filter(e -> e.getCategoria() == cbCategoria.getValue()).collect(Collectors.toList());
+        }
+        if (dpFechaEspecifica.getValue() != null) {
+            LocalDate fecha = dpFechaEspecifica.getValue();
+            eventos = eventos.stream().filter(e -> e.getFechaHora().toLocalDate().equals(fecha)).collect(Collectors.toList());
         }
 
-        if (dpFecha.getValue() != null) {
-            LocalDate fecha = dpFecha.getValue();
-            eventos = eventos.stream()
-                    .filter(e -> e.getFechaHora().toLocalDate().isAfter(fecha) || e.getFechaHora().toLocalDate().isEqual(fecha))
-                    .collect(Collectors.toList());
+        double precioMax = sliderPrecio.getValue();
+        eventos = eventos.stream().filter(e -> e.getPrecioMinimo() <= precioMax).collect(Collectors.toList());
+
+        if (cbOrdenar != null) {
+            String orden = cbOrdenar.getValue();
+            if (orden.equals("Fecha (más cercano)")) eventos.sort(Comparator.comparing(Evento::getFechaHora));
+            else if (orden.equals("Fecha (más lejano)")) eventos.sort((a, b) -> b.getFechaHora().compareTo(a.getFechaHora()));
+            else if (orden.equals("Precio (menor)")) eventos.sort(Comparator.comparingDouble(Evento::getPrecioMinimo));
+            else if (orden.equals("Precio (mayor)")) eventos.sort((a, b) -> Double.compare(b.getPrecioMinimo(), a.getPrecioMinimo()));
         }
 
         if (eventos.isEmpty()) {
-            Label noEventos = new Label("No hay eventos disponibles con estos filtros");
-            noEventos.setStyle("-fx-text-fill: #888; -fx-padding: 30;");
-            eventosContainer.getChildren().add(noEventos);
+            Label noEventos = new Label("📭 No hay eventos disponibles con estos filtros");
+            noEventos.setStyle("-fx-text-fill: #64748b; -fx-padding: 40px; -fx-font-size: 14px;");
+            container.getChildren().add(noEventos);
             return;
         }
 
-        for (Evento evento : eventos) {
-            eventosContainer.getChildren().add(crearTarjetaEvento(evento));
+        for (Evento e : eventos) {
+            container.getChildren().add(crearTarjetaEvento(e));
         }
     }
 
     private VBox crearTarjetaEvento(Evento evento) {
-        VBox tarjeta = new VBox(10);
-        tarjeta.setStyle("-fx-background-color: white; -fx-background-radius: 15px; -fx-padding: 15; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);");
+        VBox tarjeta = new VBox(12);
+        tarjeta.setStyle(
+                "-fx-background-color: white;" +
+                        "-fx-background-radius: 24px;" +
+                        "-fx-padding: 20px;" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 15, 0, 0, 4);"
+        );
 
-        // Categoría badge
+        // Efecto hover
+        tarjeta.setOnMouseEntered(e -> tarjeta.setStyle(
+                "-fx-background-color: white;" +
+                        "-fx-background-radius: 24px;" +
+                        "-fx-padding: 20px;" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 25, 0, 0, 8);"
+        ));
+        tarjeta.setOnMouseExited(e -> tarjeta.setStyle(
+                "-fx-background-color: white;" +
+                        "-fx-background-radius: 24px;" +
+                        "-fx-padding: 20px;" +
+                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 15, 0, 0, 4);"
+        ));
+
+        HBox header = new HBox();
+        header.setAlignment(Pos.CENTER_LEFT);
+
         Label badge = new Label(evento.getCategoria().toString());
         String badgeColor;
         switch (evento.getCategoria()) {
-            case CONCIERTO: badgeColor = "#e94560"; break;
-            case TEATRO: badgeColor = "#667eea"; break;
-            case CONFERENCIA: badgeColor = "#43e97b"; break;
-            default: badgeColor = "#888";
+            case CONCIERTO: badgeColor = "#ef4444"; break;
+            case TEATRO: badgeColor = "#6366f1"; break;
+            case CONFERENCIA: badgeColor = "#10b981"; break;
+            default: badgeColor = "#64748b";
         }
-        badge.setStyle("-fx-background-color: " + badgeColor + "; -fx-text-fill: white; -fx-background-radius: 15px; -fx-padding: 5 12; -fx-font-size: 11px;");
+        badge.setStyle("-fx-background-color: " + badgeColor + "; -fx-text-fill: white; -fx-background-radius: 20px; -fx-padding: 4 15px; -fx-font-size: 12px; -fx-font-weight: 600;");
 
-        // Título
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Label fechaLabel = new Label(evento.getFechaHora().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        fechaLabel.setStyle("-fx-text-fill: #64748b; -fx-font-size: 12px;");
+
+        header.getChildren().addAll(badge, spacer, fechaLabel);
+
         Label nombre = new Label(evento.getNombre());
-        nombre.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #333;");
+        nombre.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: #1e293b;");
 
-        // Descripción
         Text descripcion = new Text(evento.getDescripcion());
         descripcion.setWrappingWidth(500);
-        descripcion.setStyle("-fx-fill: #666;");
+        descripcion.setStyle("-fx-fill: #64748b; -fx-font-size: 13px;");
 
-        // Detalles en grid
         GridPane detalles = new GridPane();
         detalles.setHgap(20);
         detalles.setVgap(8);
+        detalles.setStyle("-fx-padding: 10 0;");
+        detalles.add(new Label("🕐 " + evento.getFechaHora().format(DateTimeFormatter.ofPattern("HH:mm"))), 0, 0);
+        detalles.add(new Label("📍 " + evento.getCiudad()), 1, 0);
+        detalles.add(new Label("🏟️ " + evento.getRecinto().getNombre()), 0, 1);
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        Label lblPrecioMin = new Label("💰 Desde $" + String.format("%,.0f", evento.getPrecioMinimo()));
+        lblPrecioMin.setStyle("-fx-text-fill: #ef4444; -fx-font-weight: bold;");
+        detalles.add(lblPrecioMin, 1, 1);
 
-        Label lblFecha = new Label("📅 " + evento.getFechaHora().format(formatter));
-        Label lblCiudad = new Label("📍 " + evento.getCiudad());
-        Label lblRecinto = new Label("🏟️ " + evento.getRecinto().getNombre());
-        Label lblPrecios = new Label("💰 Desde $" + String.format("%,.0f", obtenerPrecioMinimo(evento)));
+        VBox zonasBox = new VBox(8);
+        Label lblZonas = new Label("🎪 Zonas disponibles:");
+        lblZonas.setStyle("-fx-font-weight: bold; -fx-text-fill: #1e293b;");
+        zonasBox.getChildren().add(lblZonas);
 
-        lblFecha.setStyle("-fx-text-fill: #555;");
-        lblCiudad.setStyle("-fx-text-fill: #555;");
-        lblRecinto.setStyle("-fx-text-fill: #555;");
-        lblPrecios.setStyle("-fx-text-fill: #e94560; -fx-font-weight: bold;");
+        GridPane tablaZonas = new GridPane();
+        tablaZonas.setHgap(15);
+        tablaZonas.setVgap(8);
+        tablaZonas.add(new Label("Zona"), 0, 0);
+        tablaZonas.add(new Label("Precio"), 1, 0);
+        tablaZonas.add(new Label("Disponibles"), 2, 0);
+        for (javafx.scene.Node node : tablaZonas.getChildren()) {
+            if (node instanceof Label) ((Label) node).setStyle("-fx-font-weight: bold; -fx-text-fill: #1e293b;");
+        }
 
-        detalles.add(lblFecha, 0, 0);
-        detalles.add(lblCiudad, 1, 0);
-        detalles.add(lblRecinto, 0, 1);
-        detalles.add(lblPrecios, 1, 1);
+        int row = 1;
+        for (Zona zona : evento.getZonas()) {
+            tablaZonas.add(new Label(zona.getNombre()), 0, row);
+            Label precioZona = new Label("$" + String.format("%,.0f", zona.getPrecioBase()));
+            precioZona.setStyle("-fx-text-fill: #ef4444; -fx-font-weight: 600;");
+            tablaZonas.add(precioZona, 1, row);
+            long disponibles = zona.getAsientos().stream().filter(a -> a.getEstado() == EstadoAsiento.DISPONIBLE).count();
+            tablaZonas.add(new Label(disponibles + " / " + zona.getCapacidad()), 2, row);
+            row++;
+        }
+        zonasBox.getChildren().add(tablaZonas);
 
-        // Botones
-        HBox botonesBox = new HBox(10);
-        botonesBox.setAlignment(Pos.CENTER_RIGHT);
+        // Resumen de asientos
+        int totalAsientos = evento.getZonas().stream().mapToInt(Zona::getCapacidad).sum();
+        int disponiblesTotal = evento.getZonas().stream()
+                .flatMap(z -> z.getAsientos().stream())
+                .mapToInt(a -> a.getEstado() == EstadoAsiento.DISPONIBLE ? 1 : 0).sum();
+        int ocupados = totalAsientos - disponiblesTotal;
+        double porcentajeOcupacion = totalAsientos > 0 ? (ocupados * 100.0 / totalAsientos) : 0;
 
-        Button btnVerZonas = new Button("Ver zonas y precios");
-        btnVerZonas.setStyle("-fx-background-color: #667eea; -fx-text-fill: white; -fx-background-radius: 20px; -fx-padding: 8 15;");
-        btnVerZonas.setOnAction(e -> mostrarZonasEvento(evento));
+        VBox resumenAsientos = new VBox(5);
+        Label lblResumen = new Label("📊 Resumen:");
+        lblResumen.setStyle("-fx-font-weight: bold; -fx-text-fill: #1e293b;");
+        ProgressBar barraOcupacion = new ProgressBar(porcentajeOcupacion / 100);
+        barraOcupacion.setPrefWidth(200);
+        barraOcupacion.setStyle("-fx-accent: #ef4444;");
+        Label lblDisponibles = new Label("🪑 Asientos disponibles: " + disponiblesTotal + " / " + totalAsientos);
+        lblDisponibles.setStyle("-fx-text-fill: #64748b; -fx-font-size: 12px;");
+        resumenAsientos.getChildren().addAll(lblResumen, barraOcupacion, lblDisponibles);
 
-        Button btnComprar = new Button("Comprar entrada");
-        btnComprar.setStyle("-fx-background-color: #43e97b; -fx-text-fill: white; -fx-background-radius: 20px; -fx-padding: 8 15; -fx-font-weight: bold;");
-        btnComprar.setOnAction(e -> iniciarCompra(evento));
+        Button btnComprar = new Button("💰 Comprar entrada");
+        btnComprar.setStyle(
+                "-fx-background-color: linear-gradient(to right, #10b981, #34d399);" +
+                        "-fx-text-fill: white;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-background-radius: 30px;" +
+                        "-fx-padding: 10 25px;" +
+                        "-fx-cursor: hand;" +
+                        "-fx-font-size: 13px;"
+        );
+        btnComprar.setMaxWidth(250);
+        btnComprar.setOnAction(e -> mostrarSelectorZonas(evento));
 
-        botonesBox.getChildren().addAll(btnVerZonas, btnComprar);
+        HBox buttonBox = new HBox(btnComprar);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
 
-        tarjeta.getChildren().addAll(badge, nombre, descripcion, detalles, new Separator(), botonesBox);
-
+        tarjeta.getChildren().addAll(header, nombre, descripcion, new Separator(), detalles, zonasBox, resumenAsientos, buttonBox);
         return tarjeta;
     }
 
-    private double obtenerPrecioMinimo(Evento evento) {
-        return evento.getRecinto().getZonas().stream()
-                .mapToDouble(Zona::getPrecioBase)
-                .min()
-                .orElse(0);
-    }
-
-    private void mostrarZonasEvento(Evento evento) {
-        Dialog<Void> dialog = new Dialog<>();
-        dialog.setTitle("Zonas - " + evento.getNombre());
-        dialog.setHeaderText(null);
-
-        VBox content = new VBox(10);
-        content.setPadding(new Insets(20));
-        content.setPrefWidth(400);
-
-        for (Zona zona : evento.getRecinto().getZonas()) {
-            VBox zonaBox = new VBox(5);
-            zonaBox.setStyle("-fx-background-color: #f8f9fa; -fx-background-radius: 10px; -fx-padding: 10;");
-
-            Label nombreZona = new Label(zona.getNombre());
-            nombreZona.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
-
-            Label precio = new Label("Precio: $" + String.format("%,.0f", zona.getPrecioBase()));
-            precio.setStyle("-fx-text-fill: #e94560;");
-
-            Label asientos = new Label("Asientos disponibles: " + zona.getAsientosDisponibles() + " / " + zona.getCapacidad());
-            asientos.setStyle("-fx-text-fill: #666;");
-
-            zonaBox.getChildren().addAll(nombreZona, precio, asientos);
-            content.getChildren().add(zonaBox);
-        }
-
-        dialog.getDialogPane().setContent(content);
-        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
-        dialog.showAndWait();
-    }
-
-    private void iniciarCompra(Evento evento) {
-        // Verificar si es administrador (no puede comprar)
-        if (usuarioActivo instanceof Administrador) {
-            mostrarAlerta("Acción no permitida", "Los administradores no pueden comprar entradas.\nInicie sesión como usuario normal.");
+    private void mostrarSelectorZonas(Evento evento) {
+        if (usuario instanceof Administrador) {
+            mostrarAlerta("Acción no permitida", "Los administradores no pueden comprar entradas.");
             return;
         }
 
-        // Crear diálogo para seleccionar zona
-        Dialog<Zona> dialog = new Dialog<>();
-        dialog.setTitle("Comprar entrada - " + evento.getNombre());
-        dialog.setHeaderText("Seleccione una zona");
+        List<Zona> zonas = evento.getZonas();
+        if (zonas.isEmpty()) {
+            mostrarAlerta("Error", "Este evento no tiene zonas disponibles.");
+            return;
+        }
 
-        VBox content = new VBox(10);
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("🎟️ Comprar entrada - " + evento.getNombre());
+        dialog.setHeaderText("Seleccione una zona y confirme su compra");
+
+        VBox content = new VBox(15);
         content.setPadding(new Insets(20));
-        content.setPrefWidth(350);
+        content.setPrefWidth(450);
+
+        VBox infoEvento = new VBox(5);
+        infoEvento.setStyle("-fx-background-color: #f1f5f9; -fx-background-radius: 15px; -fx-padding: 15px;");
+        infoEvento.getChildren().addAll(
+                new Label("📌 " + evento.getNombre()),
+                new Label("📅 " + evento.getFechaHora().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))),
+                new Label("📍 " + evento.getCiudad() + " - " + evento.getRecinto().getNombre())
+        );
+        infoEvento.getChildren().get(0).setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+        ((Label)infoEvento.getChildren().get(1)).setStyle("-fx-text-fill: #64748b; -fx-font-size: 12px;");
+        ((Label)infoEvento.getChildren().get(2)).setStyle("-fx-text-fill: #64748b; -fx-font-size: 12px;");
+
+        VBox selectorBox = new VBox(8);
+        Label lblSeleccion = new Label("🎪 Seleccione una zona:");
+        lblSeleccion.setStyle("-fx-font-weight: bold; -fx-text-fill: #1e293b;");
 
         ComboBox<Zona> cbZona = new ComboBox<>();
-        cbZona.getItems().addAll(evento.getRecinto().getZonas());
-        cbZona.setPromptText("Seleccione zona");
-
-        // Mostrar información de la zona seleccionada
-        Label lblInfo = new Label();
-        lblInfo.setStyle("-fx-text-fill: #666;");
-
-        cbZona.setOnAction(e -> {
-            Zona zona = cbZona.getValue();
-            if (zona != null) {
-                lblInfo.setText("Precio: $" + String.format("%,.0f", zona.getPrecioBase()) +
-                        "\nAsientos disponibles: " + zona.getAsientosDisponibles());
+        cbZona.getItems().addAll(zonas);
+        cbZona.setPromptText("Elija una zona");
+        cbZona.setCellFactory(lv -> new ListCell<Zona>() {
+            @Override
+            protected void updateItem(Zona item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) setText(null);
+                else {
+                    long disponibles = item.getAsientos().stream().filter(a -> a.getEstado() == EstadoAsiento.DISPONIBLE).count();
+                    setText(item.getNombre() + " - $" + String.format("%,.0f", item.getPrecioBase()) + " (" + disponibles + " disponibles)");
+                }
             }
         });
+        cbZona.setButtonCell(new ListCell<Zona>() {
+            @Override
+            protected void updateItem(Zona item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) setText("Elija una zona");
+                else setText(item.getNombre() + " - $" + String.format("%,.0f", item.getPrecioBase()));
+            }
+        });
+        selectorBox.getChildren().addAll(lblSeleccion, cbZona);
 
-        Button btnConfirmar = new Button("Confirmar compra");
-        btnConfirmar.setStyle("-fx-background-color: #43e97b; -fx-text-fill: white; -fx-background-radius: 20px; -fx-padding: 10; -fx-font-weight: bold;");
+        Button btnConfirmar = new Button("✅ Confirmar compra");
+        btnConfirmar.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 30px; -fx-padding: 10 20; -fx-cursor: hand;");
+        btnConfirmar.setMaxWidth(Double.MAX_VALUE);
 
-        content.getChildren().addAll(new Label("Zona:"), cbZona, lblInfo, btnConfirmar);
+        content.getChildren().addAll(infoEvento, selectorBox, btnConfirmar);
         dialog.getDialogPane().setContent(content);
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CANCEL);
 
@@ -329,36 +401,21 @@ public class EventosView {
     }
 
     private void realizarCompra(Evento evento, Zona zona) {
-        // Buscar asiento disponible
-        Asiento asiento = zona.getAsientos().stream()
-                .filter(a -> a.getEstado() == EstadoAsiento.DISPONIBLE)
-                .findFirst()
-                .orElse(null);
-
+        Asiento asiento = zona.getAsientos().stream().filter(a -> a.getEstado() == EstadoAsiento.DISPONIBLE).findFirst().orElse(null);
         if (asiento == null) {
-            mostrarAlerta("Sin disponibilidad", "No hay asientos disponibles en esta zona");
+            mostrarAlerta("Sin disponibilidad", "No hay asientos disponibles en esta zona.");
             return;
         }
 
-        // Crear compra
         String idCompra = "C" + System.currentTimeMillis();
-        Compra compra = compraService.crearCompra(idCompra, (Usuario) usuarioActivo, evento);
-
-        // Crear entrada
+        Compra compra = new Compra(idCompra, (Usuario) usuario, evento);
         Entrada entrada = new Entrada("ENT" + System.currentTimeMillis(), evento, zona, asiento, zona.getPrecioBase());
-        compraService.agregarEntrada(compra, entrada);
-
-        // Marcar asiento como reservado
+        compra.agregarItem(entrada);
+        compraRepo.save(compra);
         asiento.setEstado(EstadoAsiento.RESERVADO);
+        asientoRepo.save(asiento);
 
-        mostrarAlerta("Éxito", "✅ Entrada reservada con éxito!\n\n" +
-                "Evento: " + evento.getNombre() + "\n" +
-                "Zona: " + zona.getNombre() + "\n" +
-                "Asiento: " + asiento.getFila() + asiento.getNumero() + "\n" +
-                "Total: $" + String.format("%,.0f", entrada.getPrecio()) + "\n\n" +
-                "Complete el pago en la sección 'Mis Compras'");
-
-        // Actualizar lista de eventos
+        mostrarAlerta("✅ Compra exitosa", "🎉 ¡Entrada reservada!\n\n📌 " + evento.getNombre() + "\n🎪 Zona: " + zona.getNombre() + "\n🪑 Asiento: " + asiento.getFila() + asiento.getNumero() + "\n💰 Total: $" + String.format("%,.0f", entrada.getPrecio()) + "\n\n💡 Complete el pago en 'Mis Compras'");
         cargarEventos();
     }
 
@@ -370,7 +427,5 @@ public class EventosView {
         alert.showAndWait();
     }
 
-    public VBox getRoot() {
-        return root;
-    }
+    public VBox getRoot() { return root; }
 }
