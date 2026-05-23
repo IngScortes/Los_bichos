@@ -6,8 +6,10 @@
       <sourceFolder url="file://$MODULE_DIR$/LosBichos/.idea" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/LosBichos/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/out" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/LosBichos/src/test" isTestSource="true" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module" module-name="eventos-platform" />
   </component>
 </module>

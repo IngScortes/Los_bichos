@@ -50,7 +50,7 @@ public class Incidencia {
     private Prioridad     prioridad;
     private LocalDateTime fechaReporte;
     private LocalDateTime fechaResolucion;
-    private com.pgii.eventos.model.Evento evento;
+    private Evento evento;
     private String        reportadoPor;
     private String        notasResolucion;
 
