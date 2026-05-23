@@ -224,6 +224,20 @@ public class LoginView {
         alert.setContentText(mensaje);
         alert.showAndWait();
     }
+    private void asegurarAdminExistente() {
+        AdministradorRepository adminRepo = AdministradorRepository.getInstance();
+
+        if (adminRepo.findAll().isEmpty()) {
+            Administrador admin = new Administrador("AD001", "Administrador", "admin@eventos.com", "600555666");
+            adminRepo.save(admin);
+            System.out.println("✅ Administrador creado manualmente");
+        } else {
+            System.out.println("✅ Administrador ya existe");
+            for (Administrador a : adminRepo.findAll()) {
+                System.out.println("Admin en repositorio: " + a.getEmail());
+            }
+        }
+    }
 
     public VBox getRoot() { return root; }
 }
