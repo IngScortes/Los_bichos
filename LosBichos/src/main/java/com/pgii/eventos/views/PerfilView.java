@@ -146,15 +146,31 @@ public class PerfilView {
     }
 
     private void guardarCambios() {
+        String emailAnterior = usuarioActivo.getEmail();
+        String emailNuevo = txtEmail.getText();
+
         usuarioActivo.setNombreCompleto(txtNombre.getText());
-        usuarioActivo.setEmail(txtEmail.getText());
+        usuarioActivo.setEmail(emailNuevo);
         usuarioActivo.setTelefono(txtTelefono.getText());
 
         if (usuarioActivo instanceof Usuario) {
             usuarioRepo.save((Usuario) usuarioActivo);
         }
 
-        mostrarAlerta("Éxito", "Información actualizada");
+        // Si el email cambió, actualizar LoginView (esto es más complejo)
+        // Solución simple: mostrar mensaje para cerrar sesión
+
+        if (!emailAnterior.equals(emailNuevo)) {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Email actualizado");
+            alert.setHeaderText(null);
+            alert.setContentText("Tu correo ha sido actualizado a: " + emailNuevo +
+                    "\n\nPor favor, cierra sesión y vuelve a iniciar con tu nuevo correo.");
+            alert.showAndWait();
+        } else {
+            mostrarAlerta("Éxito", "Información actualizada");
+        }
+
         cargarDatos();
     }
 

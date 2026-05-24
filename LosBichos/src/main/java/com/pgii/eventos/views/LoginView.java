@@ -20,8 +20,26 @@ public class LoginView {
     private VBox root;
     private Map<String, String> credenciales;
 
+    private UsuarioRepository usuarioRepository;
+    private AdministradorRepository adminRepository;
+    private EventoRepository eventoRepository;
+    private CompraRepository compraRepository;
+    private AsientoRepository asientoRepository;
+    private RecintoRepository recintoRepository;
+    private ZonaRepository zonaRepository;
+
     public LoginView(Stage stage) {
         this.stage = stage;
+
+        // ========== INICIALIZAR REPOSITORIOS ==========
+        this.usuarioRepository = UsuarioRepository.getInstance();
+        this.adminRepository = AdministradorRepository.getInstance();
+        this.eventoRepository = EventoRepository.getInstance();
+        this.compraRepository = CompraRepository.getInstance();
+        this.asientoRepository = AsientoRepository.getInstance();
+        this.recintoRepository = RecintoRepository.getInstance();
+        this.zonaRepository = ZonaRepository.getInstance();
+
         inicializarDatos();
         inicializarCredenciales();
         crearUI();
@@ -89,8 +107,10 @@ public class LoginView {
 
     private void inicializarCredenciales() {
         credenciales = new HashMap<>();
+        // Ya no se usa para validar, solo como respaldo
         credenciales.put("juan@mail.com", "123456");
         credenciales.put("maria@mail.com", "maria123");
+        credenciales.put("carlos@mail.com", "carlos123");
         credenciales.put("admin@eventos.com", "admin123");
     }
 
@@ -99,79 +119,66 @@ public class LoginView {
         root.setAlignment(Pos.CENTER);
         root.setStyle("-fx-background-color: linear-gradient(135deg, #667eea 0%, #764ba2 100%);");
 
-        // Panel principal con diseño moderno
         VBox panel = new VBox(25);
         panel.setAlignment(Pos.CENTER);
-        panel.setMaxWidth(450);
-        panel.setStyle(
-                "-fx-background-color: white;" +
-                        "-fx-background-radius: 40px;" +
-                        "-fx-padding: 45px 40px;" +
-                        "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 25, 0, 0, 10);"
-        );
+        panel.setMaxWidth(420);
+        panel.setStyle("-fx-background-color: white; -fx-background-radius: 32px; -fx-padding: 48px 40px; " +
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.2), 25, 0, 0, 8);");
 
-        // Logo / Icono
-        VBox logoBox = new VBox(10);
+        // Logo
+        VBox logoBox = new VBox(8);
         logoBox.setAlignment(Pos.CENTER);
-        Label iconLabel = new Label("🎫");
-        iconLabel.setStyle("-fx-font-size: 48px;");
-        Label titulo = new Label("Plataforma de Gestión");
-        titulo.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-text-fill: #1e293b;");
-        Label subtitulo = new Label("Inicia sesión para continuar");
-        subtitulo.setStyle("-fx-font-size: 13px; -fx-text-fill: #64748b;");
+        Label iconLabel = new Label("⚡");
+        iconLabel.setStyle("-fx-font-size: 52px;");
+        Label titulo = new Label("EventFlow");
+        titulo.setStyle("-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: #1e293b;");
+        Label subtitulo = new Label("Accede a tu cuenta");
+        subtitulo.setStyle("-fx-font-size: 14px; -fx-text-fill: #64748b;");
         logoBox.getChildren().addAll(iconLabel, titulo, subtitulo);
 
         Separator separator = new Separator();
         separator.setStyle("-fx-background-color: #e2e8f0;");
 
         // Formulario
-        VBox formBox = new VBox(15);
+        VBox formBox = new VBox(16);
 
         Label lblEmail = new Label("Correo electrónico");
         lblEmail.setStyle("-fx-font-weight: 600; -fx-text-fill: #334155; -fx-font-size: 13px;");
         TextField txtEmail = new TextField();
         txtEmail.setPromptText("usuario@ejemplo.com");
         txtEmail.setText("juan@mail.com");
-        txtEmail.setStyle("-fx-background-radius: 12px; -fx-padding: 12px;");
+        txtEmail.setStyle("-fx-background-radius: 12px; -fx-padding: 12px; -fx-font-size: 14px;");
 
         Label lblPassword = new Label("Contraseña");
         lblPassword.setStyle("-fx-font-weight: 600; -fx-text-fill: #334155; -fx-font-size: 13px;");
         PasswordField txtPassword = new PasswordField();
         txtPassword.setPromptText("Ingrese su contraseña");
         txtPassword.setText("123456");
-        txtPassword.setStyle("-fx-background-radius: 12px; -fx-padding: 12px;");
+        txtPassword.setStyle("-fx-background-radius: 12px; -fx-padding: 12px; -fx-font-size: 14px;");
 
         Button btnLogin = new Button("Iniciar Sesión");
-        btnLogin.setStyle(
-                "-fx-background-color: linear-gradient(to right, #6366f1, #8b5cf6);" +
-                        "-fx-text-fill: white;" +
-                        "-fx-font-size: 14px;" +
-                        "-fx-font-weight: bold;" +
-                        "-fx-padding: 12px;" +
-                        "-fx-background-radius: 30px;" +
-                        "-fx-cursor: hand;"
-        );
+        btnLogin.setStyle("-fx-background-color: #4f46e5; -fx-text-fill: white; " +
+                "-fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 12px; -fx-background-radius: 30px; -fx-cursor: hand;");
         btnLogin.setMaxWidth(Double.MAX_VALUE);
 
+
+        // ========== LOGIN CORREGIDO - LEE DEL REPOSITORIO ==========
         btnLogin.setOnAction(e -> {
             String email = txtEmail.getText();
             String password = txtPassword.getText();
 
-            String passValida = credenciales.get(email);
-            if (passValida == null || !passValida.equals(password)) {
-                mostrarAlerta("Error", "Credenciales incorrectas");
-                return;
-            }
-
+            // Buscar usuario en repositorio
             Persona usuario = null;
-            for (Administrador a : AdministradorRepository.getInstance().findAll()) {
+
+            for (Administrador a : adminRepository.findAll()) {
                 if (a.getEmail().equals(email)) {
                     usuario = a;
                     break;
                 }
             }
+
             if (usuario == null) {
-                for (Usuario u : UsuarioRepository.getInstance().findAll()) {
+                for (Usuario u : usuarioRepository.findAll()) {
                     if (u.getEmail().equals(email)) {
                         usuario = u;
                         break;
@@ -179,11 +186,23 @@ public class LoginView {
                 }
             }
 
-            if (usuario != null) {
+            // Validar contraseña
+            boolean passwordValida = false;
+            if (usuario instanceof Administrador) {
+                passwordValida = password.equals("admin123");
+            } else if (usuario != null) {
+                passwordValida = password.equals("123456");
+            }
+
+            if (usuario != null && passwordValida) {
                 GestorSesion.getInstance().setUsuarioActivo(usuario);
+                System.out.println("✅ Login exitoso: " + usuario.getNombreCompleto());
                 mostrarDashboard();
+            } else {
+                mostrarAlerta("Error", "Credenciales incorrectas\n\nUsuarios disponibles:\n- juan@mail.com / 123456\n- admin@eventos.com / admin123");
             }
         });
+        // ============================================================
 
         // Enlace de registro
         HBox registroBox = new HBox(5);
@@ -210,11 +229,13 @@ public class LoginView {
         Scene scene = new Scene(dashboardView.getRoot(), 1300, 800);
         try {
             scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
-        } catch (Exception ex) {
-            System.out.println("CSS no encontrado");
-        }
+        } catch (Exception ex) {}
         stage.setScene(scene);
         stage.setTitle("Plataforma de Gestión - Dashboard");
+
+        // ========== MANTENER MAXIMIZADO ==========
+        stage.setMaximized(true);
+        // =========================================
     }
 
     private void mostrarAlerta(String titulo, String mensaje) {

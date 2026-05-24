@@ -47,6 +47,7 @@ public class EventosView {
     private void crearUI() {
         root = new VBox(15);
         root.setPadding(new Insets(20));
+        root.setFillWidth(true);
         root.setStyle("-fx-background-color: #f1f5f9;");
 
         Label titulo = new Label("🎪 Eventos Disponibles");
@@ -282,6 +283,13 @@ public class EventosView {
 
     private void mostrarSelectorZonas(Evento evento) {
         if (usuario instanceof Administrador) {
+            registrarIncidencia(
+                    "Intento de compra por administrador",
+                    "El administrador " + usuario.getEmail() + " intentó comprar entradas para el evento " + evento.getNombre(),
+                    Incidencia.Tipo.SEGURIDAD,
+                    Incidencia.Prioridad.ALTA,
+                    evento
+            );
             mostrarAlerta("Acción no permitida", "Los administradores no pueden comprar entradas.");
             return;
         }
@@ -405,6 +413,14 @@ public class EventosView {
                         .findFirst().orElse(null);
 
                 if (asiento == null) {
+                    registrarIncidencia(
+                            "Asiento no disponible",
+                            "Usuario " + usuario.getEmail() + " intentó comprar en zona " + zona.getNombre() +
+                                    " del evento " + evento.getNombre() + " pero no hay asientos disponibles.",
+                            Incidencia.Tipo.LOGISTICA,
+                            Incidencia.Prioridad.MEDIA,
+                            evento
+                    );
                     mostrarAlerta("Sin disponibilidad", "No hay asientos disponibles en esta zona.");
                     return;
                 }
@@ -428,6 +444,21 @@ public class EventosView {
     }
 
     private void realizarCompraConServicios(Evento evento, Zona zona, Asiento asiento, ItemCompra entradaFinal) {
+        // Verificar si el asiento sigue disponible (por si acaso)
+        if (asiento.getEstado() != EstadoAsiento.DISPONIBLE) {
+            registrarIncidencia(
+                    "Asiento ya ocupado",
+                    "Usuario " + usuario.getEmail() + " intentó comprar asiento " + asiento.getIdAsiento() +
+                            " del evento " + evento.getNombre() + " pero ya estaba ocupado.",
+                    Incidencia.Tipo.LOGISTICA,
+                    Incidencia.Prioridad.MEDIA,
+                    evento
+            );
+            mostrarAlerta("Sin disponibilidad", "El asiento ya no está disponible.");
+            cargarEventos();
+            return;
+        }
+
         String idCompra = "C" + System.currentTimeMillis();
         Compra compra = new Compra(idCompra, (Usuario) usuario, evento);
         compra.agregarItem(entradaFinal);
@@ -454,23 +485,20 @@ public class EventosView {
         cargarEventos();
     }
 
-    private void realizarCompra(Evento evento, Zona zona) {
-        Asiento asiento = zona.getAsientos().stream().filter(a -> a.getEstado() == EstadoAsiento.DISPONIBLE).findFirst().orElse(null);
-        if (asiento == null) {
-            mostrarAlerta("Sin disponibilidad", "No hay asientos disponibles en esta zona.");
-            return;
-        }
-
-        String idCompra = "C" + System.currentTimeMillis();
-        Compra compra = new Compra(idCompra, (Usuario) usuario, evento);
-        Entrada entrada = new Entrada("ENT" + System.currentTimeMillis(), evento, zona, asiento, zona.getPrecioBase());
-        compra.agregarItem(entrada);
-        compraRepo.save(compra);
-        asiento.setEstado(EstadoAsiento.RESERVADO);
-        asientoRepo.save(asiento);
-
-        mostrarAlerta("✅ Compra exitosa", "🎉 ¡Entrada reservada!\n\n📌 " + evento.getNombre() + "\n🎪 Zona: " + zona.getNombre() + "\n🪑 Asiento: " + asiento.getFila() + asiento.getNumero() + "\n💰 Total: $" + String.format("%,.0f", entrada.getPrecio()) + "\n\n💡 Complete el pago en 'Mis Compras'");
-        cargarEventos();
+    private void registrarIncidencia(String titulo, String descripcion,
+                                     Incidencia.Tipo tipo, Incidencia.Prioridad prioridad,
+                                     Evento evento) {
+        Incidencia incidencia = new Incidencia(
+                "INC_" + System.currentTimeMillis(),
+                titulo,
+                descripcion,
+                tipo,
+                prioridad,
+                evento,
+                GestorSesion.getInstance().getUsuarioActivo().getEmail()
+        );
+        IncidenciaRepository.getInstance().save(incidencia);
+        System.out.println("⚠️ Incidencia registrada: " + titulo);
     }
 
     private void mostrarAlerta(String titulo, String mensaje) {

@@ -3,8 +3,10 @@ package com.pgii.eventos.service;
 import com.pgii.eventos.model.*;
 import com.pgii.eventos.patterns.behavioral.strategy.MetodoPago;
 import com.pgii.eventos.patterns.behavioral.strategy.ResultadoPago;
+import com.pgii.eventos.repository.CompraRepository;
+import com.pgii.eventos.repository.AsientoRepository;
+import com.pgii.eventos.repository.IncidenciaRepository;
 import java.time.LocalDateTime;
-import com.pgii.eventos.repository.*;
 
 public class CompraService {
     private CompraRepository compraRepository;
@@ -21,10 +23,6 @@ public class CompraService {
         usuario.agregarCompra(compra);
         return compra;
     }
-    public void cancelarCompra(Compra compra) {
-        compra.setEstado(EstadoCompra.CANCELADA);
-        compraRepository.save(compra);
-    }
 
     public void agregarEntrada(Compra compra, Entrada entrada) {
         compra.agregarItem(entrada);
@@ -35,8 +33,32 @@ public class CompraService {
         compraRepository.save(compra);
     }
 
+    public void cancelarCompra(Compra compra) {
+        compra.setEstado(EstadoCompra.CANCELADA);
+        for (ItemCompra item : compra.getItems()) {
+            if (item instanceof Entrada && ((Entrada) item).getAsiento() != null) {
+                ((Entrada) item).getAsiento().setEstado(EstadoAsiento.DISPONIBLE);
+                asientoRepository.save(((Entrada) item).getAsiento());
+            }
+        }
+        compraRepository.save(compra);
+    }
+
     public ResultadoPago pagarCompraConStrategy(Compra compra, MetodoPago metodo) {
         if (compra.getEstado() != EstadoCompra.CREADA) {
+            // Registrar incidencia
+            Incidencia incidencia = new Incidencia(
+                    "INC_" + System.currentTimeMillis(),
+                    "Intento de pago inválido",
+                    "Usuario " + compra.getUsuario().getEmail() + " intentó pagar compra " +
+                            compra.getIdCompra() + " en estado " + compra.getEstado(),
+                    Incidencia.Tipo.TECNICA,
+                    Incidencia.Prioridad.ALTA,
+                    compra.getEvento(),
+                    "Sistema"
+            );
+            IncidenciaRepository.getInstance().save(incidencia);
+
             return new ResultadoPago(false, "La compra no está en estado CREADA", null);
         }
 
@@ -62,5 +84,9 @@ public class CompraService {
         }
 
         return resultado;
+    }
+
+    public Compra buscarCompra(String id) {
+        return compraRepository.findById(id);
     }
 }

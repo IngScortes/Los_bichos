@@ -16,6 +16,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import java.awt.Desktop;
+import java.net.URI;
+
 public class MisComprasView {
     private Stage stage;
     private VBox root;
@@ -302,7 +305,6 @@ public class MisComprasView {
         dialog.showAndWait();
     }
 
-    // ========== FUNCIONALIDAD 3: Generar PDF de entrada ==========
     private void generarPDFEntrada(Compra compra) {
         try {
             PDDocument document = new PDDocument();
@@ -310,10 +312,12 @@ public class MisComprasView {
             document.addPage(page);
 
             PDPageContentStream cs = new PDPageContentStream(document, page);
-            cs.setFont(PDType1Font.HELVETICA_BOLD, 18);
+
+            // Usar fuente sin emojis
+            cs.setFont(PDType1Font.HELVETICA_BOLD, 16);
             cs.beginText();
             cs.newLineAtOffset(50, 750);
-            cs.showText("🎫 ENTRADA DE EVENTO");
+            cs.showText("ENTRADA DE EVENTO");
             cs.endText();
 
             cs.setFont(PDType1Font.HELVETICA, 12);
@@ -370,10 +374,19 @@ public class MisComprasView {
             cs.close();
 
             String fileName = "entrada_" + compra.getIdCompra() + ".pdf";
-            document.save(fileName);
+            String rutaCompleta = System.getProperty("user.dir") + "/" + fileName;
+            document.save(rutaCompleta);
             document.close();
 
-            mostrarAlerta("PDF Generado", "Se ha generado el archivo: " + fileName);
+            // ========== ABRIR EN NAVEGADOR ==========
+            try {
+                String uri = "file:///" + rutaCompleta.replace("\\", "/").replace(" ", "%20");
+                Desktop.getDesktop().browse(new URI(uri));
+                mostrarAlerta("PDF Generado", "El PDF se ha abierto en tu navegador.\nUbicación: " + rutaCompleta);
+            } catch (Exception ex) {
+                mostrarAlerta("PDF Generado", "El PDF se guardó en:\n" + rutaCompleta);
+            }
+            // ========================================
 
         } catch (Exception e) {
             e.printStackTrace();
