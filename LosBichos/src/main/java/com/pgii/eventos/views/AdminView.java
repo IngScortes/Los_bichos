@@ -4,6 +4,7 @@ import com.pgii.eventos.model.*;
 import com.pgii.eventos.patterns.structural.adapter.ApachePOICSVAdapter;
 import com.pgii.eventos.repository.*;
 import com.pgii.eventos.service.ReporteService;
+import com.pgii.eventos.patterns.structural.adapter.PDFBoxAdapter;
 import javafx.collections.FXCollections;
 import javafx.geometry.*;
 import javafx.scene.Scene;
@@ -16,6 +17,11 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+
+import java.net.URI;
+import java.awt.Desktop;
+import java.io.File;
+import java.io.IOException;
 
 public class AdminView {
     private Stage stage;
@@ -396,25 +402,43 @@ public class AdminView {
         Label titulo = new Label("📊 Exportar Reportes");
         titulo.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1e293b;");
 
-        Label descripcion = new Label("Genere reportes en formato Excel de las diferentes métricas del sistema.");
+        Label descripcion = new Label("Genere reportes en formato Excel o PDF de las diferentes métricas del sistema.");
         descripcion.setStyle("-fx-text-fill: #64748b; -fx-font-size: 13px;");
 
-        Button btnVentas = new Button("📄 Exportar Reporte de Ventas");
-        btnVentas.setStyle("-fx-background-color: #6366f1; -fx-text-fill: white; -fx-background-radius: 25px; -fx-padding: 10 20; -fx-cursor: hand; -fx-font-weight: 600;");
+        // ========== REPORTES EXCEL ==========
+        Label lblExcel = new Label("📄 Reportes Excel");
+        lblExcel.setStyle("-fx-font-weight: bold; -fx-text-fill: #1e293b; -fx-padding: 10 0 0 0;");
+
+        Button btnVentas = new Button("📊 Exportar Reporte de Ventas (Excel)");
+        btnVentas.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; -fx-background-radius: 25px; -fx-padding: 10 20; -fx-cursor: hand; -fx-font-weight: 600;");
         btnVentas.setMaxWidth(Double.MAX_VALUE);
         btnVentas.setOnAction(e -> exportarReporteVentas());
 
-        Button btnCompradores = new Button("👥 Exportar Compradores por Evento");
+        Button btnCompradores = new Button("👥 Exportar Compradores por Evento (Excel)");
         btnCompradores.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; -fx-background-radius: 25px; -fx-padding: 10 20; -fx-cursor: hand; -fx-font-weight: 600;");
         btnCompradores.setMaxWidth(Double.MAX_VALUE);
         btnCompradores.setOnAction(e -> exportarCompradoresPorEvento());
 
-        Button btnEstadisticas = new Button("📊 Exportar Estadísticas Generales");
-        btnEstadisticas.setStyle("-fx-background-color: #f59e0b; -fx-text-fill: white; -fx-background-radius: 25px; -fx-padding: 10 20; -fx-cursor: hand; -fx-font-weight: 600;");
+        Button btnEstadisticas = new Button("📈 Exportar Estadísticas Generales (Excel)");
+        btnEstadisticas.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; -fx-background-radius: 25px; -fx-padding: 10 20; -fx-cursor: hand; -fx-font-weight: 600;");
         btnEstadisticas.setMaxWidth(Double.MAX_VALUE);
         btnEstadisticas.setOnAction(e -> exportarEstadisticas());
 
-        panel.getChildren().addAll(titulo, descripcion, btnVentas, btnCompradores, btnEstadisticas);
+        // ========== REPORTES PDF ==========
+        Label lblPDF = new Label("📑 Reportes PDF");
+        lblPDF.setStyle("-fx-font-weight: bold; -fx-text-fill: #1e293b; -fx-padding: 15 0 0 0;");
+
+        Button btnVentasPDF = new Button("📊 Exportar Reporte de Ventas (PDF)");
+        btnVentasPDF.setStyle("-fx-background-color: #ef4444; -fx-text-fill: white; -fx-background-radius: 25px; -fx-padding: 10 20; -fx-cursor: hand; -fx-font-weight: 600;");
+        btnVentasPDF.setMaxWidth(Double.MAX_VALUE);
+        btnVentasPDF.setOnAction(e -> exportarReporteVentasPDF());
+
+        Button btnEstadisticasPDF = new Button("📈 Exportar Estadísticas Generales (PDF)");
+        btnEstadisticasPDF.setStyle("-fx-background-color: #ef4444; -fx-text-fill: white; -fx-background-radius: 25px; -fx-padding: 10 20; -fx-cursor: hand; -fx-font-weight: 600;");
+        btnEstadisticasPDF.setMaxWidth(Double.MAX_VALUE);
+        btnEstadisticasPDF.setOnAction(e -> exportarEstadisticasPDF());
+
+        panel.getChildren().addAll(titulo, descripcion, lblExcel, btnVentas, btnCompradores, btnEstadisticas, lblPDF, btnVentasPDF, btnEstadisticasPDF);
         return panel;
     }
 
@@ -560,5 +584,55 @@ public class AdminView {
         alert.showAndWait();
     }
 
+    private void exportarReporteVentasPDF() {
+        try {
+            ReporteService reporteService = new ReporteService(compraRepo, eventoRepo, usuarioRepo);
+            PDFBoxAdapter pdfAdapter = new PDFBoxAdapter();
+            String nombreArchivo = "reporte_ventas_" + System.currentTimeMillis() + ".pdf";
+            reporteService.exportarReporteVentasPDF(pdfAdapter, nombreArchivo);
+            mostrarAlerta("Éxito", "PDF generado: " + nombreArchivo);
+            abrirArchivo(nombreArchivo);  // ← Agregar esta línea
+        } catch (Exception e) {
+            mostrarAlerta("Error", e.getMessage());
+        }
+    }
+    private void exportarEstadisticasPDF() {
+        try {
+            ReporteService reporteService = new ReporteService(compraRepo, eventoRepo, usuarioRepo);
+            PDFBoxAdapter pdfAdapter = new PDFBoxAdapter();
+            String nombreArchivo = "estadisticas_" + System.currentTimeMillis() + ".pdf";
+            reporteService.exportarEstadisticasPDF(pdfAdapter, nombreArchivo);
+            mostrarAlerta("Éxito", "PDF generado: " + nombreArchivo);
+            abrirArchivo(nombreArchivo);
+        } catch (Exception e) {
+            mostrarAlerta("Error", e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void abrirArchivo(String ruta) {
+        try {
+            File archivo = new File(ruta);
+            if (archivo.exists()) {
+                String rutaAbsoluta = archivo.getAbsolutePath();
+
+                if (ruta.endsWith(".pdf")) {
+                    // Para PDF: abrir en navegador
+                    String uri = "file:///" + rutaAbsoluta.replace("\\", "/").replace(" ", "%20");
+                    Desktop.getDesktop().browse(new URI(uri));
+                    System.out.println("📂 PDF abierto en navegador: " + uri);
+                } else {
+                    // Para Excel y otros: abrir con programa predeterminado
+                    Desktop.getDesktop().open(archivo);
+                    System.out.println("📂 Archivo abierto: " + rutaAbsoluta);
+                }
+            } else {
+                System.out.println("❌ Archivo no encontrado: " + ruta);
+            }
+        } catch (Exception e) {
+            System.out.println("❌ Error al abrir: " + e.getMessage());
+            mostrarAlerta("Archivo generado", "El archivo se guardó en:\n" + new File(ruta).getAbsolutePath());
+        }
+    }
     public VBox getRoot() { return root; }
 }
