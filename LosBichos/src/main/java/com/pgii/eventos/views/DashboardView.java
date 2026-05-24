@@ -93,13 +93,19 @@ public class DashboardView {
 
         Button btnDashboard = crearBotonMenu("📊 Dashboard", true);
         Button btnEventos = crearBotonMenu("🎪 Eventos", false);
-        Button btnCompras = crearBotonMenu("🎟️ Mis Compras", false);
 
         btnDashboard.setOnAction(e -> tabPane.getSelectionModel().select(0));
         btnEventos.setOnAction(e -> tabPane.getSelectionModel().select(1));
-        btnCompras.setOnAction(e -> tabPane.getSelectionModel().select(2));
 
-        menu.getChildren().addAll(btnDashboard, btnEventos, btnCompras);
+        menu.getChildren().addAll(btnDashboard, btnEventos);
+
+        // ========== MIS COMPRAS SOLO PARA USUARIOS NORMALES ==========
+        if (!GestorSesion.getInstance().isAdmin()) {
+            Button btnCompras = crearBotonMenu("🎟️ Mis Compras", false);
+            btnCompras.setOnAction(e -> tabPane.getSelectionModel().select(2));
+            menu.getChildren().add(btnCompras);
+        }
+        // ==============================================================
 
         // ========== MÉTRICAS SOLO PARA ADMIN ==========
         if (GestorSesion.getInstance().isAdmin()) {
@@ -108,6 +114,12 @@ public class DashboardView {
             menu.getChildren().add(btnMetricas);
         }
         // ============================================
+
+        // ========== PERFIL PARA TODOS ==========
+        Button btnPerfil = crearBotonMenu("👤 Mi Perfil", false);
+        btnPerfil.setOnAction(e -> mostrarPerfil());
+        menu.getChildren().add(btnPerfil);
+        // =======================================
 
         if (GestorSesion.getInstance().isAdmin()) {
             Button btnAdmin = crearBotonMenu("👑 Administrador", false);
@@ -156,12 +168,17 @@ public class DashboardView {
         tabEventos.setContent(eventosView.getRoot());
         tabEventos.setClosable(false);
 
-        Tab tabCompras = new Tab("🎟️ Mis Compras");
-        misComprasView = new MisComprasView(stage);
-        tabCompras.setContent(misComprasView.getRoot());
-        tabCompras.setClosable(false);
+        tabPane.getTabs().addAll(tabDashboard, tabEventos);
 
-        tabPane.getTabs().addAll(tabDashboard, tabEventos, tabCompras);
+        // ========== MIS COMPRAS SOLO PARA USUARIOS NORMALES ==========
+        if (!GestorSesion.getInstance().isAdmin()) {
+            Tab tabCompras = new Tab("🎟️ Mis Compras");
+            misComprasView = new MisComprasView(stage);
+            tabCompras.setContent(misComprasView.getRoot());
+            tabCompras.setClosable(false);
+            tabPane.getTabs().add(tabCompras);
+        }
+        // ==============================================================
 
         // ========== MÉTRICAS SOLO PARA ADMIN ==========
         if (GestorSesion.getInstance().isAdmin()) {
@@ -296,6 +313,17 @@ public class DashboardView {
             scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
         } catch (Exception ex) {}
         stage.setScene(scene);
+    }
+
+
+    private void mostrarPerfil() {
+        PerfilView perfilView = new PerfilView(stage);
+        Scene scene = new Scene(perfilView.getRoot(), 1300, 800);
+        try {
+            scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
+        } catch (Exception ex) {}
+        stage.setScene(scene);
+        stage.setTitle("Mi Perfil");
     }
 
     public BorderPane getRoot() { return root; }
