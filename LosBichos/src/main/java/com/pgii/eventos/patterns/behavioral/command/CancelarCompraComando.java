@@ -12,18 +12,16 @@ public class CancelarCompraComando implements Comando {
     public CancelarCompraComando(Compra compra, CompraService compraService) {
         this.compra = compra;
         this.compraService = compraService;
+        this.estadoAnterior = compra.getEstado();
     }
 
     @Override
     public void ejecutar() {
-        this.estadoAnterior = compra.getEstado();
         compraService.cancelarCompra(compra);
-        System.out.println("Comando ejecutado: Cancelar compra " + compra.getIdCompra());
     }
 
     @Override
     public void deshacer() {
         compra.setEstado(estadoAnterior);
-        System.out.println("Undo: Se restauró el estado de la compra a " + estadoAnterior);
     }
 }

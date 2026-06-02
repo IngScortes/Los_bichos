@@ -1,5 +1,6 @@
 package com.pgii.eventos.service;
 
+import com.pgii.eventos.model.Administrador;
 import com.pgii.eventos.model.Persona;
 
 public class GestorSesion {
@@ -28,6 +29,6 @@ public class GestorSesion {
     }
 
     public boolean isAdmin() {
-        return usuarioActivo instanceof com.pgii.eventos.model.Administrador;
+        return usuarioActivo instanceof Administrador;
     }
 }

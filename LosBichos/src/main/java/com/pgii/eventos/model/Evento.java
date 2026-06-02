@@ -14,11 +14,14 @@ public class Evento {
     private String ciudad;
     private LocalDateTime fechaHora;
     private EstadoEvento estado;
-    private String politicasCancelacion; // texto simple
+    private String politicasCancelacion;
     private String politicasReembolso;
     private Recinto recinto;
     private String politicas;
     private List<Observador> observadores = new ArrayList<>();
+
+    // NUEVO: Zonas específicas del evento
+    private List<Zona> zonas = new ArrayList<>();
 
     public Evento(String idEvento, String nombre, CategoriaEvento categoria, String descripcion,
                   String ciudad, LocalDateTime fechaHora, Recinto recinto) {
@@ -28,13 +31,15 @@ public class Evento {
         this.descripcion = descripcion;
         this.ciudad = ciudad;
         this.fechaHora = fechaHora;
-        this.estado = EstadoEvento.BORRADOR; // por defecto
+        this.estado = EstadoEvento.BORRADOR;
         this.recinto = recinto;
         this.politicasCancelacion = "";
         this.politicasReembolso = "";
         this.politicas = "";
+        this.zonas = new ArrayList<>();
     }
 
+    // ========== GETTERS Y SETTERS EXISTENTES ==========
     public String getPoliticas() { return politicas; }
     public void setPoliticas(String politicas) { this.politicas = politicas; }
 
@@ -71,11 +76,53 @@ public class Evento {
     public Recinto getRecinto() { return recinto; }
     public void setRecinto(Recinto recinto) { this.recinto = recinto; }
 
+    // ========== NUEVOS MÉTODOS PARA ZONAS ==========
+    public List<Zona> getZonas() {
+        return zonas;
+    }
+
+    public void setZonas(List<Zona> zonas) {
+        this.zonas = zonas;
+    }
+
+    public void agregarZona(Zona zona) {
+        this.zonas.add(zona);
+    }
+
+    public void eliminarZona(Zona zona) {
+        this.zonas.remove(zona);
+    }
+
+    // ========== MÉTODO PARA OBTENER PRECIO MÍNIMO ==========
+    public double getPrecioMinimo() {
+        return zonas.stream()
+                .mapToDouble(Zona::getPrecioBase)
+                .min()
+                .orElse(0);
+    }
+
+    // ========== MÉTODO PARA OBTENER CAPACIDAD TOTAL ==========
+    public int getCapacidadTotal() {
+        return zonas.stream()
+                .mapToInt(Zona::getCapacidad)
+                .sum();
+    }
+
+    // ========== MÉTODO PARA OBTENER ASIENTOS DISPONIBLES TOTALES ==========
+    public int getAsientosDisponiblesTotales() {
+        return zonas.stream()
+                .mapToInt(zona -> (int) zona.getAsientos().stream()
+                        .filter(a -> a.getEstado() == EstadoAsiento.DISPONIBLE)
+                        .count())
+                .sum();
+    }
+
     @Override
     public String toString() {
         return nombre + " - " + fechaHora + " (" + estado + ")";
     }
 
+    // ========== MÉTODOS OBSERVER ==========
     public void agregarObservador(Observador obs) { observadores.add(obs); }
     public void removerObservador(Observador obs) { observadores.remove(obs); }
     public void notificarObservadores(String tipoEvento, String mensaje) {
